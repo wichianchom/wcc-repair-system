@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="th" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบแจ้งซ่อม - โรงเรียนวิเชียรชม</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Kanit', sans-serif; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; align-items: center; justify-content: center; }
+    .modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
+    .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500; }
+    .status-pending { background-color: #fef3c7; color: #92400e; }
+    .status-completed { background-color: #d1fae5; color: #065f46; }
+    .tab-btn { padding: 10px 20px; font-weight: 500; color: #6b7280; border-bottom: 3px solid transparent; transition: 0.3s; }
+    .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+    .spinner { border: 3px solid rgba(0,0,0,0.1); width: 20px; height: 20px; border-radius: 50%; border-left-color: #2563eb; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="h-full flex flex-col text-gray-800">
+
+  <header class="bg-blue-700 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold tracking-wide">ระบบแจ้งซ่อมโรงเรียนวิเชียรชม</h1>
+        <p class="text-blue-200 text-sm">ระบบแจ้งซ่อม โรงเรียนวิเชียรชม</p>
+      </div>
+      <a href="it_dashboard.html" class="bg-blue-800 hover:bg-blue-900 px-4 py-2 rounded-lg text-sm font-medium transition">เข้าสู่ระบบช่าง</a>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <h2 class="text-2xl font-bold text-gray-800">รายการแจ้งซ่อมล่าสุด</h2>
+      <button onclick="openModal('form-modal')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md transition flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+        แจ้งซ่อมใหม่
+      </button>
+    </div>
+
+    <div class="bg-white rounded-t-xl border-b border-gray-200 flex overflow-x-auto">
+      <button class="tab-btn active whitespace-nowrap" onclick="filterData('all', this)">รายการทั้งหมด</button>
+      <button class="tab-btn whitespace-nowrap" onclick="filterData('รอดำเนินการ', this)">รอดำเนินการ</button>
+      <button class="tab-btn whitespace-nowrap" onclick="filterData('เสร็จสิ้น', this)">เสร็จสิ้นแล้ว</button>
+    </div>
+
+    <div class="bg-white rounded-b-xl shadow-sm border border-t-0 border-gray-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
+              <th class="p-4 font-semibold">วันที่แจ้ง</th>
+              <th class="p-4 font-semibold">หมวดหมู่</th>
+              <th class="p-4 font-semibold">ผู้แจ้ง / กลุ่มงาน</th>
+              <th class="p-4 font-semibold">รายการครุภัณฑ์ (รายการที่ 1)</th>
+              <th class="p-4 font-semibold">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="public-ticket-list" class="divide-y divide-gray-100 text-sm">
+            <tr><td colspan="5" class="p-8 text-center text-gray-500"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="form-modal" class="modal p-4">
+    <div class="modal-content">
+      <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0 z-10">
+        <h2 class="text-xl font-bold text-gray-800">📝 แบบฟอร์มแจ้งซ่อม</h2>
+        <button onclick="closeModal('form-modal')" class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      
+      <div class="p-6">
+        <form id="repair-form" onsubmit="submitRepair(event)">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <div>
+              <label class="block text-sm font-semibold mb-1">ประเภทงานซ่อม <span class="text-red-500">*</span></label>
+              <select id="repair-type" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                <option value="">-- เลือกประเภท --</option>
+                <option value="General">ทั่วไป (อาคาร/ประปา/ไฟฟ้า)</option>
+                <option value="IT">อุปกรณ์ไอที (คอมฯ/ปริ้นเตอร์/เน็ต)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1">ชื่อผู้แจ้ง <span class="text-red-500">*</span></label>
+              <input type="text" id="reporter-name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ระบุชื่อ-นามสกุล">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold mb-1">กลุ่มงาน / กลุ่มชั้น <span class="text-red-500">*</span></label>
+              <input type="text" id="department" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น สายชั้น ป.1">
+            </div>
+          </div>
+
+          <div class="bg-blue-50 p-4 rounded-lg mb-5 border border-blue-100">
+            <h3 class="font-bold text-blue-800 mb-3">รายการที่ 1 <span class="text-red-500">*</span></h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold mb-1">รายการครุภัณฑ์</label>
+                <input type="text" id="item1" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น คอมพิวเตอร์">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold mb-1">หมายเลขครุภัณฑ์ (ถ้ามี)</label>
+                <input type="text" id="code1" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-semibold mb-1">สาเหตุ / อาการชำรุด</label>
+                <textarea id="reason1" required rows="2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="อธิบายอาการชำรุด"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200">
+            <h3 class="font-bold text-gray-700 mb-3">รายการที่ 2 (ไม่บังคับ)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold mb-1">รายการครุภัณฑ์ 2</label>
+                <input type="text" id="item2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold mb-1">หมายเลขครุภัณฑ์ 2</label>
+                <input type="text" id="code2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-semibold mb-1">สาเหตุ / อาการ 2</label>
+                <textarea id="reason2" rows="2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-1">แนบรูปภาพประกอบ <span class="text-red-500">*</span></label>
+            <input type="file" id="imageFile" accept="image/*" required class="w-full border border-gray-300 rounded-lg p-2 bg-white">
+          </div>
+
+          <div class="border-t pt-5 flex justify-end gap-3">
+            <button type="button" onclick="closeModal('form-modal')" class="px-5 py-2.5 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition">ยกเลิก</button>
+            <button type="submit" id="submit-btn" class="px-5 py-2.5 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 shadow-md transition">บันทึกแจ้งซ่อม</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 🛑 เอาลิงก์ Web App ของคุณมาใส่ตรงนี้ครับ!
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtvUZ4DeWglG5qb_fAlTOSrLz5XjeQgEm6aGtZIGJZay_wBCjVJeyEmbzg4ebkzbc-GA/exec';
+
+    let allPublicTickets = [];
+
+    window.onload = function() {
+      fetchPublicTickets();
+    };
+
+    // ใช้ fetch API ในการดึงข้อมูลแบบ GET
+    function fetchPublicTickets() {
+      fetch(SCRIPT_URL + '?action=getPublicTickets')
+        .then(response => response.json())
+        .then(data => renderTable(data))
+        .catch(error => console.error("Error fetching tickets:", error));
+    }
+
+    function renderTable(tickets) {
+      allPublicTickets = tickets.reverse(); 
+      displayFilteredTable('all');
+    }
+
+    function displayFilteredTable(statusFilter) {
+      const tbody = document.getElementById('public-ticket-list');
+      let filtered = allPublicTickets;
+      if (statusFilter !== 'all') {
+        filtered = allPublicTickets.filter(t => t.status === statusFilter);
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-500">ยังไม่มีข้อมูลแจ้งซ่อม</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => {
+        // ส่วนของป้ายสถานะ
+        let statusHtml = t.status === 'เสร็จสิ้น' 
+          ? `<span class="status-badge status-completed">เสร็จสิ้น</span>`
+          : `<span class="status-badge status-pending">รอดำเนินการ</span>`;
+          
+        let typeText = t.type === 'IT' ? 'ซ่อมไอที' : 'ซ่อมทั่วไป';
+
+        // 🌟 เพิ่มปุ่มพิมพ์ PDF (จะแสดงเฉพาะเมื่อสถานะเสร็จสิ้น และมีลิงก์ PDF)
+        let pdfButton = (t.status === 'เสร็จสิ้น' && t.pdfUrl)
+          ? `<div class="mt-2"><a href="${t.pdfUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded hover:bg-indigo-200 transition font-medium"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg> พิมพ์ใบแจ้งซ่อม</a></div>`
+          : ``;
+
+        return `
+          <tr class="hover:bg-gray-50 transition">
+            <td class="p-4 whitespace-nowrap">${t.date}</td>
+            <td class="p-4"><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-semibold">${typeText}</span></td>
+            <td class="p-4">
+              <div class="font-medium text-gray-800">${t.name}</div>
+              <div class="text-xs text-gray-500">${t.department}</div>
+            </td>
+            <td class="p-4">
+              <div class="font-medium text-gray-800">${t.item}</div>
+              <div class="text-xs text-gray-500 truncate max-w-xs">${t.reason}</div>
+            </td>
+            <td class="p-4">
+              ${statusHtml}
+              ${pdfButton}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterData(status, btnElement) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+      displayFilteredTable(status);
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { 
+      document.getElementById(id).classList.remove('active'); 
+      if(id === 'form-modal') document.getElementById('repair-form').reset();
+    }
+
+    // ประมวลผลและส่งข้อมูลไปให้ API ด้วย fetch POST
+    function submitRepair(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังส่ง...';
+
+      const formData = {
+        repairType: document.getElementById('repair-type').value,
+        reporterName: document.getElementById('reporter-name').value,
+        department: document.getElementById('department').value,
+        item1: document.getElementById('item1').value,
+        code1: document.getElementById('code1').value,
+        reason1: document.getElementById('reason1').value,
+        item2: document.getElementById('item2').value,
+        code2: document.getElementById('code2').value,
+        reason2: document.getElementById('reason2').value
+      };
+
+      const fileInput = document.getElementById('imageFile');
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          formData.imageFile = {
+            data: e.target.result.split(',')[1],
+            mimeType: file.type,
+            name: file.name
+          };
+          
+          // ส่งข้ามโดเมนไปยัง Google Apps Script
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'submitForm', formData: formData })
+          })
+          .then(res => res.json())
+          .then(response => {
+            if(response.status === 'success') onSuccess(response.data);
+            else onError(response.message);
+          })
+          .catch(error => onError(error));
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function onSuccess(response) {
+      alert("✅ บันทึกข้อมูลสำเร็จ! สถานะของคุณอัปเดตบนตารางแล้ว");
+      closeModal('form-modal');
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = false;
+      btn.innerHTML = 'บันทึกแจ้งซ่อม';
+      fetchPublicTickets(); 
+      
+      if(response && response.pdfUrl) window.open(response.pdfUrl, '_blank');
+    }
+
+    function onError(error) {
+      alert("❌ เกิดข้อผิดพลาด: " + error);
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = false;
+      btn.innerHTML = 'บันทึกแจ้งซ่อม';
+    }
+  </script>
+</body>
+</html>
