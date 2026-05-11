@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="th" class="h-full bg-gray-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - ระบบแจ้งซ่อมโรงเรียนวิเชียรชม</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Kanit', sans-serif; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
+    .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .spinner { border: 3px solid rgba(0,0,0,0.1); width: 20px; height: 20px; border-radius: 50%; border-left-color: #2563eb; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; }
+  </style>
+</head>
+<body class="h-full flex flex-col text-gray-800">
+
+  <div id="login-modal" class="modal active">
+    <div class="modal-content p-8 text-center max-w-sm">
+      <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+      </div>
+      <h2 class="text-2xl font-bold mb-2">เข้าสู่ระบบผู้ดูแล</h2>
+      <p class="text-gray-500 mb-6 text-sm">กรุณากรอกรหัสผ่านเพื่อจัดการระบบแจ้งซ่อม</p>
+      <input type="password" id="password-input" class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-500 outline-none text-center" placeholder="รหัสผ่าน">
+      <button onclick="login()" class="bg-blue-600 hover:bg-blue-700 text-white w-full py-3 rounded-lg font-bold shadow-md transition">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+
+  <div id="main-app" class="hidden h-full flex flex-col">
+    <header class="bg-gray-800 text-white shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div>
+          <h1 class="text-xl font-bold">Admin Dashboard</h1>
+          <p class="text-gray-400 text-sm">จัดการงานแจ้งซ่อมโรงเรียนวิเชียรชม</p>
+        </div>
+        <div class="flex gap-2">
+          <a href="index.html" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded font-medium text-sm transition text-white">กลับหน้าหลัก</a>
+          <button onclick="location.reload()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded font-medium text-sm transition">ออกจากระบบ</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-6 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 class="text-xl font-bold">📋 รายการแจ้งซ่อมทั้งหมด</h2>
+          <div class="flex items-center gap-4 text-sm">
+            <select id="filter-type" onchange="renderJobs(jobsData)" class="border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">แสดงทุกประเภท</option>
+                <option value="IT">เฉพาะงานไอที</option>
+                <option value="General">เฉพาะงานทั่วไป</option>
+            </select>
+            <button onclick="fetchJobs()" class="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              รีเฟรช
+            </button>
+          </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-white border-b border-gray-200 text-sm text-gray-500">
+                <th class="p-4 font-semibold">วันที่แจ้ง</th>
+                <th class="p-4 font-semibold">ประเภท</th>
+                <th class="p-4 font-semibold">ผู้แจ้ง / กลุ่มงาน</th>
+                <th class="p-4 font-semibold">รายการ / อาการ</th>
+                <th class="p-4 font-semibold">สถานะ</th>
+                <th class="p-4 font-semibold">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="job-list">
+              <tr><td colspan="6" class="p-8 text-center text-gray-500"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="detail-modal" class="modal p-4">
+    <div class="modal-content">
+      <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+        <h2 class="text-lg font-bold text-gray-800">⚙️ จัดการงานแจ้งซ่อม</h2>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      
+      <div class="p-6">
+        <div class="mb-5 bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+          <div class="grid grid-cols-2 gap-2">
+            <p><strong>ประเภท:</strong> <span id="modal-type-text" class="px-2 py-0.5 rounded text-xs font-bold"></span></p>
+            <p><strong>ผู้แจ้ง:</strong> <span id="modal-name" class="text-blue-800"></span></p>
+            <p class="col-span-2"><strong>รายการ:</strong> <span id="modal-item" class="text-blue-800"></span></p>
+            <p class="col-span-2"><strong>อาการ:</strong> <span id="modal-reason" class="text-blue-800"></span></p>
+          </div>
+        </div>
+
+        <input type="hidden" id="modal-rowId">
+        <input type="hidden" id="modal-type-val">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block font-semibold mb-2 text-sm">สถานะงาน <span class="text-red-500">*</span></label>
+                <select id="edit-status" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+                    <option value="รอการตรวจสอบ">⏳ รอการตรวจสอบ</option>
+                    <option value="ดำเนินการ">🛠️ ดำเนินการ (สร้าง PDF)</option>
+                    <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
+                    <option value="ยกเลิก">❌ ยกเลิก</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold mb-2 text-sm">เจ้าหน้าที่ผู้รับผิดชอบ <span class="text-red-500">*</span></label>
+                <select id="staff-name" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">-- เลือกเจ้าหน้าที่ --</option>
+                    </select>
+            </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block font-semibold mb-2 text-sm">รายละเอียดการแก้ไข (แสดงใน PDF) <span class="text-red-500">*</span></label>
+          <textarea id="repair-reason" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" rows="2" placeholder="ระบุการตรวจสอบหรือการแก้ไข"></textarea>
+        </div>
+
+        <div class="mb-6">
+          <label class="block font-semibold mb-2 text-sm text-orange-600">หมายเหตุภายใน (ไม่แสดงใน PDF)</label>
+          <textarea id="repair-remark" class="w-full border border-orange-200 bg-orange-50 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 outline-none" rows="1" placeholder="จดบันทึกเพิ่มเติม"></textarea>
+        </div>
+
+        <button id="approve-btn" onclick="submitUpdateJob()" class="bg-blue-600 hover:bg-blue-700 text-white w-full py-3 rounded-lg text-lg font-bold shadow-md transition">
+          บันทึกและอัปเดตสถานะ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsZRnOI8S8EaTAHH3UOaXTbLz8bIlZNPrJp9T5gxgfuuatDzXwFGwYQgYYR2nxcBRI9w/exec';
+    let jobsData = [];
+
+    const STAFF_LIST = {
+        'IT': ['นายจักรินทร์ จันทรักษ์', 'นายชัยสวัสดิ์ เกตุมา'],
+        'General': ['นายชินกร บัวผิน']
+    };
+
+    function login() {
+      const pass = document.getElementById('password-input').value;
+      if (pass === 'admin123') {
+        document.getElementById('login-modal').classList.remove('active');
+        document.getElementById('main-app').classList.remove('hidden');
+        fetchJobs();
+      } else { alert('❌ รหัสผ่านไม่ถูกต้อง'); }
+    }
+
+    document.getElementById('password-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') login(); });
+
+    function fetchJobs() {
+      document.getElementById('job-list').innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</td></tr>';
+      
+      fetch(SCRIPT_URL + '?action=getAdminJobs')
+        .then(res => res.text()) // รับค่ามาเป็นข้อความก่อน
+        .then(text => {
+          try {
+            const data = JSON.parse(text); // ลองแปลงเป็นชุดข้อมูล
+            jobsData = data; 
+            renderJobs(data);
+          } catch (e) {
+            console.error("เซิร์ฟเวอร์ตอบกลับมาผิดปกติ (ไม่ใช่ JSON):", text);
+            alert("⚠️ ดึงข้อมูลล้มเหลว! กด F12 แล้วดูแท็บ Console เพื่อดูข้อความ Error จากเซิร์ฟเวอร์ครับ");
+            document.getElementById('job-list').innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-500 font-bold">❌ ดึงข้อมูลล้มเหลว กรุณาตรวจสอบลิงก์ SCRIPT_URL หรือข้อมูลใน Sheet</td></tr>`;
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching jobs:", err);
+          alert("❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
+        });
+    }
+
+    function renderJobs(jobs) {
+      const typeFilter = document.getElementById('filter-type').value;
+      const tbody = document.getElementById('job-list');
+      
+      let filtered = typeFilter === 'all' ? jobs : jobs.filter(j => j.type === typeFilter);
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-gray-500">ไม่พบรายการแจ้งซ่อม</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((job, index) => {
+        let statusClass = "bg-gray-100 text-gray-800";
+        if(job.status === "รอการตรวจสอบ") statusClass = "bg-yellow-100 text-yellow-800";
+        else if(job.status === "ดำเนินการ") statusClass = "bg-blue-100 text-blue-800";
+        else if(job.status === "เสร็จสิ้น") statusClass = "bg-green-100 text-green-800";
+        else if(job.status === "ยกเลิก") statusClass = "bg-red-100 text-red-800";
+
+        const typeBadge = job.type === 'IT' ? 'bg-indigo-100 text-indigo-700' : 'bg-teal-100 text-teal-700';
+
+        return `
+          <tr class="hover:bg-gray-50 transition border-b border-gray-100 text-sm">
+            <td class="p-4 whitespace-nowrap text-gray-500">${job.date}</td>
+            <td class="p-4"><span class="px-2 py-0.5 rounded text-xs font-bold ${typeBadge}">${job.type}</span></td>
+            <td class="p-4">
+              <div class="font-medium text-gray-800">${job.name}</div>
+              <div class="text-xs text-gray-500">${job.department}</div>
+            </td>
+            <td class="p-4">
+              <div class="font-medium text-gray-800">${job.item1}</div>
+              <div class="text-xs text-gray-500 truncate max-w-xs">${job.reason1}</div>
+              ${job.imageUrl ? `<a href="${job.imageUrl}" target="_blank" class="text-blue-500 text-xs hover:underline mt-1 block">🖼️ ดูรูป</a>` : ''}
+            </td>
+            <td class="p-4">
+              <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusClass}">${job.status || 'รอการตรวจสอบ'}</span>
+              ${(job.status === "ดำเนินการ" || job.status === "เสร็จสิ้น") && job.pdfUrl ? `<div class="mt-1"><a href="${job.pdfUrl}" target="_blank" class="text-xs text-green-600 hover:underline">📄 ใบแจ้งซ่อม</a></div>` : ''}
+            </td>
+            <td class="p-4">
+              <button onclick="openModal(${jobs.indexOf(job)})" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-900 transition">จัดการ</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openModal(index) {
+      const job = jobsData[index];
+      const type = job.type || 'IT';
+      
+      document.getElementById('modal-rowId').value = job.rowId;
+      document.getElementById('modal-type-val').value = type;
+      document.getElementById('modal-name').innerText = job.name;
+      document.getElementById('modal-item').innerText = job.item1;
+      document.getElementById('modal-reason').innerText = job.reason1;
+      
+      const typeBadge = document.getElementById('modal-type-text');
+      typeBadge.innerText = type === 'IT' ? '🖥️ ไอที' : '🏗️ ทั่วไป';
+      typeBadge.className = `px-2 py-0.5 rounded text-xs font-bold ${type === 'IT' ? 'bg-indigo-100 text-indigo-700' : 'bg-teal-100 text-teal-700'}`;
+
+      // โหลดรายชื่อช่างตามประเภทงาน
+      const staffSelect = document.getElementById('staff-name');
+      staffSelect.innerHTML = '<option value="">-- เลือกเจ้าหน้าที่ --</option>';
+      (STAFF_LIST[type] || []).forEach(s => {
+          staffSelect.innerHTML += `<option value="${s}">${s}</option>`;
+      });
+
+      document.getElementById('edit-status').value = job.status || "รอการตรวจสอบ";
+      document.getElementById('staff-name').value = job.staffName || job.itName || "";
+      document.getElementById('repair-reason').value = job.repairReason || job.itReason || "";
+      document.getElementById('repair-remark').value = job.repairRemark || job.itRemark || "";
+      
+      document.getElementById('detail-modal').classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('detail-modal').classList.remove('active'); }
+
+    function submitUpdateJob() {
+      const rowId = document.getElementById('modal-rowId').value;
+      const type = document.getElementById('modal-type-val').value;
+      const status = document.getElementById('edit-status').value;
+      const staffName = document.getElementById('staff-name').value;
+      const repairReason = document.getElementById('repair-reason').value;
+      const repairRemark = document.getElementById('repair-remark').value;
+
+      if ((status === "ดำเนินการ" || status === "เสร็จสิ้น") && (!repairReason || !staffName)) {
+        alert("⚠️ กรุณากรอกรายละเอียดการซ่อมและเลือกเจ้าหน้าที่ เพื่อใช้สร้างเอกสาร PDF");
+        return;
+      }
+
+      const btn = document.getElementById('approve-btn');
+      btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
+      btn.disabled = true;
+
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'updateAdminJob',
+          rowId: rowId,
+          type: type,
+          status: status,
+          staffName: staffName,
+          repairReason: repairReason,
+          repairRemark: repairRemark
+        })
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === 'success') { alert("✅ อัปเดตข้อมูลเรียบร้อย!"); closeModal(); fetchJobs(); }
+        else { alert("❌ ผิดพลาด: " + res.message); }
+      })
+      .catch(err => alert("❌ การเชื่อมต่อผิดพลาด"))
+      .finally(() => { btn.innerHTML = 'บันทึกและอัปเดตสถานะ'; btn.disabled = false; });
+    }
+  </script>
+</body>
+</html>
