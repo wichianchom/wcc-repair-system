@@ -1,310 +1,582 @@
 <!doctype html>
-<html lang="th" class="h-full bg-gray-50">
+<html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบแจ้งซ่อม - โรงเรียนวิเชียรชม</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://firestore.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { font-family: 'Kanit', sans-serif; }
-    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; align-items: center; justify-content: center; }
-    .modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
-    .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
-    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .tab-btn { padding: 10px 20px; font-weight: 500; color: #6b7280; border-bottom: 3px solid transparent; transition: 0.3s; }
-    .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
-    .spinner { border: 3px solid rgba(0,0,0,0.1); width: 20px; height: 20px; border-radius: 50%; border-left-color: #2563eb; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 50; align-items: flex-start; justify-content: center; overflow-y: auto; }
+    .modal.active { display: flex; animation: fadeIn 0.18s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .spinner { border: 3px solid rgba(0,0,0,0.12); width: 18px; height: 18px; border-radius: 50%; border-left-color: currentColor; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .field { width: 100%; border: 1px solid #d1d5db; border-radius: 0.6rem; padding: 0.6rem 0.75rem; outline: none; background: #fff; }
+    .field:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.18); }
+    .tab-btn { padding: 0.65rem 1rem; font-weight: 500; color: #6b7280; border-bottom: 3px solid transparent; white-space: nowrap; transition: color .2s, border-color .2s; }
+    .tab-btn.active { color: #1d4ed8; border-bottom-color: #2563eb; }
   </style>
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
 </head>
-<body class="h-full flex flex-col text-gray-800">
+<body class="min-h-screen bg-gray-50 text-gray-800 flex flex-col">
+
+  <div id="setup-banner" class="hidden bg-amber-100 text-amber-900 text-sm px-4 py-3 text-center">
+    ⚙️ ยังไม่ได้ตั้งค่า Firebase — แก้ไขไฟล์ <code class="bg-amber-200 px-1 rounded">js/config.js</code> ตามขั้นตอนใน README.md
+  </div>
 
   <header class="bg-blue-700 text-white shadow-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-      <div>
-        <h1 class="text-2xl font-bold tracking-wide">ระบบแจ้งซ่อมโรงเรียนวิเชียรชม</h1>
-        <p class="text-blue-200 text-sm">ระบบแจ้งซ่อม โรงเรียนวิเชียรชม</p>
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center gap-3">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold tracking-wide">ระบบแจ้งซ่อม</h1>
+        <p class="text-blue-200 text-sm truncate" data-school></p>
       </div>
-      <a href="admin_dashboard.html" class="bg-blue-800 hover:bg-blue-900 px-4 py-2 rounded-lg text-sm font-medium transition">เข้าสู่ระบบช่าง</a>
+      <a href="admin.html" class="shrink-0 bg-blue-800 hover:bg-blue-900 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition">สำหรับเจ้าหน้าที่</a>
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-      <h2 class="text-2xl font-bold text-gray-800">รายการแจ้งซ่อมล่าสุด</h2>
-      <button onclick="openModal('form-modal')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md transition flex items-center gap-2">
+  <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 sm:py-8">
+    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-5">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">รายการแจ้งซ่อมล่าสุด</h2>
+        <p id="live-state" class="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+          <span class="spinner text-gray-400" style="width:12px;height:12px;border-width:2px"></span> กำลังเชื่อมต่อ...
+        </p>
+      </div>
+      <button id="open-form" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md transition flex items-center justify-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
         แจ้งซ่อมใหม่
       </button>
     </div>
 
-    <div class="bg-white rounded-t-xl border-b border-gray-200 flex overflow-x-auto">
-      <button class="tab-btn active whitespace-nowrap" onclick="filterData('all', this)">รายการทั้งหมด</button>
-      <button class="tab-btn whitespace-nowrap" onclick="filterData('รอการตรวจสอบ', this)">รอการตรวจสอบ</button>
-      <button class="tab-btn whitespace-nowrap" onclick="filterData('ดำเนินการ', this)">ดำเนินการ</button>
-      <button class="tab-btn whitespace-nowrap" onclick="filterData('เสร็จสิ้น', this)">เสร็จสิ้น</button>
-      <button class="tab-btn whitespace-nowrap" onclick="filterData('ยกเลิก', this)">ยกเลิก</button>
+    <div class="mb-3">
+      <label for="search" class="sr-only">ค้นหา</label>
+      <input id="search" type="search" class="field" placeholder="🔍 ค้นหาชื่อผู้แจ้ง, เลขที่, รายการ หรือสถานที่">
     </div>
 
-    <div class="bg-white rounded-b-xl shadow-sm border border-t-0 border-gray-200 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
-              <th class="p-4 font-semibold">วันที่แจ้ง</th>
-              <th class="p-4 font-semibold">หมวดหมู่</th>
-              <th class="p-4 font-semibold">ผู้แจ้ง / กลุ่มงาน</th>
-              <th class="p-4 font-semibold">รายการครุภัณฑ์ (รายการที่ 1)</th>
-              <th class="p-4 font-semibold">สถานะ</th>
-            </tr>
-          </thead>
-          <tbody id="public-ticket-list" class="divide-y divide-gray-100 text-sm">
-            <tr><td colspan="5" class="p-8 text-center text-gray-500"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="bg-white rounded-t-xl border border-gray-200 border-b-0 flex overflow-x-auto" role="tablist">
+      <button class="tab-btn active" data-tab="all">ทั้งหมด <span class="text-xs text-gray-400" data-count="all">0</span></button>
+      <button class="tab-btn" data-tab="รอการตรวจสอบ">รอการตรวจสอบ <span class="text-xs text-gray-400" data-count="รอการตรวจสอบ">0</span></button>
+      <button class="tab-btn" data-tab="ดำเนินการ">ดำเนินการ <span class="text-xs text-gray-400" data-count="ดำเนินการ">0</span></button>
+      <button class="tab-btn" data-tab="เสร็จสิ้น">เสร็จสิ้น <span class="text-xs text-gray-400" data-count="เสร็จสิ้น">0</span></button>
+      <button class="tab-btn" data-tab="ยกเลิก">ยกเลิก <span class="text-xs text-gray-400" data-count="ยกเลิก">0</span></button>
+    </div>
+
+    <div class="bg-white rounded-b-xl shadow-sm border border-gray-200 overflow-hidden">
+      <!-- ตาราง (จอใหญ่) -->
+      <table class="w-full text-left border-collapse hidden md:table">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
+            <th class="p-4 font-semibold w-36">เลขที่ / วันที่</th>
+            <th class="p-4 font-semibold">ประเภท</th>
+            <th class="p-4 font-semibold">ผู้แจ้ง</th>
+            <th class="p-4 font-semibold">รายการ / สถานที่</th>
+            <th class="p-4 font-semibold">สถานะ</th>
+            <th class="p-4 font-semibold"><span class="sr-only">พิมพ์</span></th>
+          </tr>
+        </thead>
+        <tbody id="table-body" class="divide-y divide-gray-100 text-sm"></tbody>
+      </table>
+      <!-- การ์ด (มือถือ) -->
+      <div id="card-list" class="md:hidden divide-y divide-gray-100"></div>
+      <div id="list-state" class="p-10 text-center text-gray-500"><span class="spinner text-blue-600 mr-2"></span> กำลังโหลดข้อมูล...</div>
+    </div>
+
+    <div class="text-center mt-4">
+      <button id="load-more" class="hidden text-blue-700 font-medium hover:underline px-4 py-2">แสดงรายการเก่าเพิ่มเติม</button>
     </div>
   </main>
 
-  <div id="form-modal" class="modal p-4">
-    <div class="modal-content">
-      <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0 z-10">
-        <h2 class="text-xl font-bold text-gray-800">📝 แบบฟอร์มแจ้งซ่อม</h2>
-        <button onclick="closeModal('form-modal')" class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+  <footer class="text-center text-xs text-gray-400 py-6">ระบบแจ้งซ่อมออนไลน์ · <span data-school></span></footer>
+
+  <!-- ===== ฟอร์มแจ้งซ่อม ===== -->
+  <div id="form-modal" class="modal p-3 sm:p-6" aria-modal="true" role="dialog" aria-labelledby="form-title">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl my-auto">
+      <div class="px-5 sm:px-6 py-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+        <h2 id="form-title" class="text-lg sm:text-xl font-bold text-gray-900">📝 แบบฟอร์มแจ้งซ่อม</h2>
+        <button type="button" data-close class="text-gray-400 hover:text-gray-700 text-3xl leading-none px-2" aria-label="ปิด">&times;</button>
       </div>
-      
-      <div class="p-6">
-        <form id="repair-form" onsubmit="submitRepair(event)">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-            <div>
-              <label class="block text-sm font-semibold mb-1">ประเภทงานซ่อม <span class="text-red-500">*</span></label>
-              <select id="repair-type" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                <option value="">-- เลือกประเภท --</option>
-                <option value="General">ทั่วไป (อาคาร/ประปา/ไฟฟ้า)</option>
-                <option value="IT">อุปกรณ์ไอที (คอมฯ/ปริ้นเตอร์/เน็ต)</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1">ชื่อผู้แจ้ง <span class="text-red-500">*</span></label>
-              <input type="text" id="reporter-name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ระบุชื่อ-นามสกุล">
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm font-semibold mb-1">กลุ่มงาน / กลุ่มชั้น <span class="text-red-500">*</span></label>
-              <input type="text" id="department" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น สายชั้น ป.1">
-            </div>
-          </div>
 
-          <div class="bg-blue-50 p-4 rounded-lg mb-5 border border-blue-100">
-            <h3 class="font-bold text-blue-800 mb-3">รายการที่ 1 <span class="text-red-500">*</span></h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-semibold mb-1">รายการครุภัณฑ์</label>
-                <input type="text" id="item1" required class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น คอมพิวเตอร์">
+      <!-- มุมมองฟอร์ม -->
+      <form id="repair-form" class="p-5 sm:p-6 space-y-5" novalidate>
+        <fieldset>
+          <legend class="block text-sm font-semibold mb-2">ประเภทงานซ่อม <span class="text-red-500">*</span></legend>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="cursor-pointer">
+              <input type="radio" name="type" value="General" class="peer sr-only">
+              <div class="h-full border-2 border-gray-200 rounded-xl p-3 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 transition">
+                <div class="text-2xl">🏗️</div>
+                <div class="font-semibold">งานทั่วไป</div>
+                <div class="text-xs text-gray-500">อาคาร / ประปา / ไฟฟ้า</div>
               </div>
-              <div>
-                <label class="block text-sm font-semibold mb-1">หมายเลขครุภัณฑ์ (ถ้ามี)</label>
-                <input type="text" id="code1" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="type" value="IT" class="peer sr-only">
+              <div class="h-full border-2 border-gray-200 rounded-xl p-3 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 transition">
+                <div class="text-2xl">🖥️</div>
+                <div class="font-semibold">งานไอที</div>
+                <div class="text-xs text-gray-500">คอมฯ / เครื่องพิมพ์ / อินเทอร์เน็ต</div>
               </div>
-              <div class="md:col-span-2">
-                <label class="block text-sm font-semibold mb-1">สาเหตุ / อาการชำรุด</label>
-                <textarea id="reason1" required rows="2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="อธิบายอาการชำรุด"></textarea>
-              </div>
-            </div>
+            </label>
           </div>
+        </fieldset>
 
-          <div class="bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200">
-            <h3 class="font-bold text-gray-700 mb-3">รายการที่ 2 (ไม่บังคับ)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-semibold mb-1">รายการครุภัณฑ์ 2</label>
-                <input type="text" id="item2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
-              </div>
-              <div>
-                <label class="block text-sm font-semibold mb-1">หมายเลขครุภัณฑ์ 2</label>
-                <input type="text" id="code2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-sm font-semibold mb-1">สาเหตุ / อาการ 2</label>
-                <textarea id="reason2" rows="2" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
-              </div>
-            </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="f-name" class="block text-sm font-semibold mb-1">ชื่อ-นามสกุลผู้แจ้ง <span class="text-red-500">*</span></label>
+            <input id="f-name" name="name" maxlength="100" class="field" placeholder="เช่น นางสาวสมใจ ใจดี" autocomplete="name">
           </div>
+          <div>
+            <label for="f-dept" class="block text-sm font-semibold mb-1">กลุ่มงาน / กลุ่มชั้น <span class="text-red-500">*</span></label>
+            <input id="f-dept" name="department" maxlength="100" class="field" placeholder="เช่น สายชั้น ป.1">
+          </div>
+          <div>
+            <label for="f-location" class="block text-sm font-semibold mb-1">สถานที่ / อาคาร / ห้อง <span class="text-red-500">*</span></label>
+            <input id="f-location" name="location" maxlength="200" class="field" placeholder="เช่น อาคาร 2 ห้อง 204">
+          </div>
+          <div>
+            <label for="f-phone" class="block text-sm font-semibold mb-1">เบอร์โทรติดต่อ <span class="font-normal text-gray-400">(ไม่บังคับ)</span></label>
+            <input id="f-phone" name="phone" type="tel" maxlength="30" class="field" placeholder="เห็นเฉพาะเจ้าหน้าที่" autocomplete="tel">
+          </div>
+        </div>
 
-          <div class="mb-5">
-            <label class="block text-sm font-semibold mb-1">แนบรูปภาพประกอบ <span class="text-red-500">*</span></label>
-            <input type="file" id="imageFile" accept="image/*" required class="w-full border border-gray-300 rounded-lg p-2 bg-white">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold">รายการที่ต้องการซ่อม <span class="text-red-500">*</span></span>
+            <span class="text-xs text-gray-400">สูงสุด 3 รายการ</span>
           </div>
+          <div id="items" class="space-y-3"></div>
+          <button type="button" id="add-item" class="mt-3 w-full border-2 border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-700 text-gray-500 rounded-xl py-2.5 text-sm font-medium transition">+ เพิ่มรายการ</button>
+        </div>
 
-          <div class="border-t pt-5 flex justify-end gap-3">
-            <button type="button" onclick="closeModal('form-modal')" class="px-5 py-2.5 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition">ยกเลิก</button>
-            <button type="submit" id="submit-btn" class="px-5 py-2.5 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 shadow-md transition">บันทึกแจ้งซ่อม</button>
-          </div>
-        </form>
+        <div>
+          <span class="block text-sm font-semibold mb-1">แนบภาพประกอบ <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(แนบทุกครั้ง)</span></span>
+          <label id="image-pick" class="flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl py-5 cursor-pointer text-gray-500 hover:text-blue-700 transition">
+            <span class="text-2xl">📷</span><span class="text-sm font-medium">ถ่ายรูป หรือเลือกรูปจากเครื่อง</span>
+            <input id="image-input" type="file" accept="image/*" class="sr-only">
+          </label>
+          <div id="image-preview" class="hidden"></div>
+        </div>
+
+        <div class="border-t pt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          <button type="button" data-close class="px-5 py-3 rounded-xl font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition">ยกเลิก</button>
+          <button type="submit" id="submit-btn" class="px-6 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-70 shadow-md transition inline-flex items-center justify-center gap-2">บันทึกแจ้งซ่อม</button>
+        </div>
+      </form>
+
+      <!-- มุมมองหลังส่งสำเร็จ -->
+      <div id="success-view" class="hidden p-8 text-center">
+        <div class="w-16 h-16 rounded-full bg-green-100 text-green-600 text-3xl flex items-center justify-center mx-auto mb-4">✓</div>
+        <h3 class="text-xl font-bold text-gray-900">แจ้งซ่อมเรียบร้อยแล้ว</h3>
+        <p class="text-gray-500 mt-1">เลขที่ใบแจ้งซ่อม</p>
+        <p id="success-no" class="text-4xl font-bold text-blue-700 tracking-wider my-2"></p>
+        <p class="text-sm text-gray-500 mb-6">ติดตามสถานะได้ที่หน้ารายการ ระบบจะอัปเดตให้อัตโนมัติ</p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+          <a id="success-print" href="#" target="_blank" rel="noopener" class="px-5 py-3 rounded-xl font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition">🖨️ พิมพ์ใบแจ้งซ่อม</a>
+          <button type="button" data-close class="px-5 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 transition">ปิด</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <script>
-    // 🛑 เอาลิงก์ Web App ของคุณมาใส่ตรงนี้เหมือนเดิมนะครับ!
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsZRnOI8S8EaTAHH3UOaXTbLz8bIlZNPrJp9T5gxgfuuatDzXwFGwYQgYYR2nxcBRI9w/exec';
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
+    import {
+      initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+      collection, query, orderBy, limit, onSnapshot, doc, runTransaction, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 
-    let allPublicTickets = [];
+    const { CFG, esc, STATUS_LIST } = window.App;
+    const $ = id => document.getElementById(id);
+    const MAX_ITEMS = 3; // ให้ใบแจ้งซ่อมพิมพ์จบใน 1 หน้า A4
+    const REMEMBER_KEY = 'repair:reporter';
 
-    window.onload = function() {
-      fetchPublicTickets();
-    };
+    document.querySelectorAll('[data-school]').forEach(el => { el.textContent = CFG.schoolName || ''; });
 
-    function fetchPublicTickets() {
-      fetch(SCRIPT_URL + '?action=getPublicTickets')
-        .then(response => response.text()) // 🌟 เปลี่ยนรับเป็นข้อความ (text) เพื่อดักจับ Error ก่อน
-        .then(text => {
-          try {
-            const data = JSON.parse(text); // ลองแปลงเป็น JSON กลับ
-            renderTable(data);
-          } catch (e) {
-            // 🚨 ถ้ามาถึงตรงนี้ แปลว่าแอป Script ส่ง Error หรือหน้าเว็บกลับมา
-            console.error("ข้อมูลที่เซิร์ฟเวอร์ตอบกลับมา ไม่ใช่ JSON:", text);
-            alert("⚠️ ระบบดึงข้อมูลไม่ได้ ลองกด F12 แล้วดูแท็บ Console เพื่ออ่านข้อความจากเซิร์ฟเวอร์ครับ");
-            document.getElementById('public-ticket-list').innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">❌ ดึงข้อมูลล้มเหลว กรุณาตรวจสอบลิงก์หรือสิทธิ์การเข้าถึง</td></tr>`;
-          }
-        })
-        .catch(error => {
-          console.error("Error fetching tickets:", error);
-          alert("❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
-        });
-    }
-
-    function renderTable(tickets) {
-      allPublicTickets = tickets.reverse(); 
-      displayFilteredTable('all');
-    }
-
-    function displayFilteredTable(statusFilter) {
-      const tbody = document.getElementById('public-ticket-list');
-      let filtered = allPublicTickets;
-      
-      if (statusFilter !== 'all') {
-        filtered = allPublicTickets.filter(t => t.status === statusFilter);
+    // ---------- Firebase ----------
+    let db = null;
+    function initDb() {
+      const app = initializeApp(CFG.firebase);
+      try {
+        return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+      } catch (e) {
+        console.warn('ใช้แคชในหน่วยความจำแทน:', e);
+        return initializeFirestore(app, {});
       }
+    }
 
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-500">ยังไม่มีข้อมูลแจ้งซ่อม</td></tr>`;
+    // ---------- รายการแจ้งซ่อม ----------
+    let tickets = [];
+    let pageSize = CFG.publicPageSize || 60;
+    let unsub = null;
+    let currentTab = 'all';
+    let searchText = '';
+
+    function subscribe() {
+      if (unsub) unsub();
+      const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(pageSize));
+      unsub = onSnapshot(q, { includeMetadataChanges: true }, snap => {
+        tickets = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        $('load-more').classList.toggle('hidden', snap.size < pageSize);
+        setLive(snap.metadata.fromCache ? 'cache' : 'live');
+        render();
+      }, err => {
+        console.error(err);
+        setLive('error');
+        showListMessage('❌ ' + esc(App.firestoreErrorText(err)), true);
+      });
+    }
+
+    function setLive(state) {
+      const el = $('live-state');
+      if (state === 'live') el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> อัปเดตอัตโนมัติ';
+      else if (state === 'cache') el.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> กำลังเชื่อมต่อ (แสดงข้อมูลล่าสุดที่จำไว้)';
+      else el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span> เชื่อมต่อไม่ได้';
+    }
+
+    function showListMessage(html, isError) {
+      $('table-body').innerHTML = '';
+      $('card-list').innerHTML = '';
+      const el = $('list-state');
+      el.className = 'p-10 text-center ' + (isError ? 'text-red-600' : 'text-gray-500');
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    }
+
+    function matches(t, q) {
+      const items = Array.isArray(t.items) ? t.items : [];
+      const hay = [App.padNo(t.no), t.name, t.department, t.location,
+        ...items.flatMap(i => [i && i.item, i && i.code, i && i.reason])].join(' ').toLowerCase();
+      return hay.includes(q.replace(/^#/, ''));
+    }
+
+    function render() {
+      const counts = { all: tickets.length };
+      STATUS_LIST.forEach(s => { counts[s] = 0; });
+      tickets.forEach(t => { counts[App.statusOf(t)]++; });
+      document.querySelectorAll('[data-count]').forEach(el => { el.textContent = counts[el.dataset.count] || 0; });
+
+      const q = searchText.trim().toLowerCase();
+      const list = tickets.filter(t =>
+        (currentTab === 'all' || App.statusOf(t) === currentTab) && (!q || matches(t, q)));
+
+      if (!list.length) {
+        showListMessage(tickets.length ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ยังไม่มีรายการแจ้งซ่อม');
         return;
       }
-
-      tbody.innerHTML = filtered.map(t => {
-        // 🌟 อัปเดตการแสดงผลป้ายสีตามสถานะ
-        let statusClass = "bg-gray-100 text-gray-800";
-        if(t.status === "รอการตรวจสอบ") statusClass = "bg-yellow-100 text-yellow-800";
-        else if(t.status === "ดำเนินการ") statusClass = "bg-blue-100 text-blue-800";
-        else if(t.status === "เสร็จสิ้น") statusClass = "bg-green-100 text-green-800";
-        else if(t.status === "ยกเลิก") statusClass = "bg-red-100 text-red-800";
-
-        let statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-semibold ${statusClass}">${t.status || 'รอการตรวจสอบ'}</span>`;          
-        let typeText = t.type === 'IT' ? 'ซ่อมไอที' : 'ซ่อมทั่วไป';
-
-        // 🌟 แก้ไข: ปุ่มพิมพ์ PDF จะแสดงเมื่อสถานะเป็น 'ดำเนินการ' และมีลิงก์ pdfUrl
-        let pdfButton = (t.status === 'ดำเนินการ' && t.pdfUrl)
-          ? `<div class="mt-2"><a href="${t.pdfUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded hover:bg-indigo-200 transition font-medium"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg> พิมพ์ใบแจ้งซ่อม</a></div>`
-          : ``;
-
-        return `
-          <tr class="hover:bg-gray-50 transition">
-            <td class="p-4 whitespace-nowrap">${t.date}</td>
-            <td class="p-4"><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-semibold">${typeText}</span></td>
-            <td class="p-4">
-              <div class="font-medium text-gray-800">${t.name}</div>
-              <div class="text-xs text-gray-500">${t.department}</div>
-            </td>
-            <td class="p-4">
-              <div class="font-medium text-gray-800">${t.item}</div>
-              <div class="text-xs text-gray-500 truncate max-w-xs">${t.reason}</div>
-            </td>
-            <td class="p-4">
-              ${statusHtml}
-              ${pdfButton}
-            </td>
-          </tr>
-        `;
-      }).join('');
+      $('list-state').classList.add('hidden');
+      $('table-body').innerHTML = list.map(rowHtml).join('');
+      $('card-list').innerHTML = list.map(cardHtml).join('');
     }
 
-    function filterData(status, btnElement) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      btnElement.classList.add('active');
-      displayFilteredTable(status);
-    }
-
-    function openModal(id) { 
-      document.getElementById(id).classList.add('active'); 
-    }
-    
-    function closeModal(id) { 
-       document.getElementById(id).classList.remove('active'); 
-       if(id === 'form-modal') document.getElementById('repair-form').reset();
-    }
-
-    function submitRepair(e) {
-      e.preventDefault();
-      const btn = document.getElementById('submit-btn');
-      btn.disabled = true;
-      btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังส่ง...';
-
-      const formData = {
-        repairType: document.getElementById('repair-type').value,
-        reporterName: document.getElementById('reporter-name').value,
-        department: document.getElementById('department').value,
-        item1: document.getElementById('item1').value,
-        code1: document.getElementById('code1').value,
-        reason1: document.getElementById('reason1').value,
-        item2: document.getElementById('item2').value,
-        code2: document.getElementById('code2').value,
-        reason2: document.getElementById('reason2').value
+    function parts(t) {
+      const items = Array.isArray(t.items) ? t.items.filter(Boolean) : [];
+      const first = items[0] || {};
+      const st = App.statusOf(t);
+      return {
+        st, first,
+        more: items.length > 1 ? `<span class="text-xs text-gray-400 font-normal"> +${items.length - 1} รายการ</span>` : '',
+        staff: t.staffName ? `<div class="text-xs text-gray-500 mt-1.5">ผู้รับผิดชอบ: ${esc(t.staffName)}</div>` : '',
+        print: st !== 'ยกเลิก'
+          ? `<a href="print.html?id=${encodeURIComponent(t.id)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-medium whitespace-nowrap">🖨️ พิมพ์</a>`
+          : ''
       };
+    }
 
-      const fileInput = document.getElementById('imageFile');
-      if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          formData.imageFile = {
-            data: e.target.result.split(',')[1],
-            mimeType: file.type,
-            name: file.name
-          };
-          
-          fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'submitForm', formData: formData })
-          })
-          .then(res => res.json())
-          .then(response => {
-            if(response.status === 'success') onSuccess(response.data);
-            else onError(response.message);
-          })
-          .catch(error => onError(error));
-        };
-        reader.readAsDataURL(file);
+    function rowHtml(t) {
+      const p = parts(t);
+      return `
+        <tr class="hover:bg-gray-50 align-top">
+          <td class="p-4 whitespace-nowrap">
+            <div class="font-semibold text-gray-900">#${App.padNo(t.no)}</div>
+            <div class="text-xs text-gray-500">${App.formatDate(t.createdAt)}</div>
+          </td>
+          <td class="p-4">${App.typeBadge(t.type)}</td>
+          <td class="p-4">
+            <div class="font-medium text-gray-900">${esc(t.name)}</div>
+            <div class="text-xs text-gray-500">${esc(t.department)}</div>
+          </td>
+          <td class="p-4 max-w-sm">
+            <div class="font-medium text-gray-900">${esc(p.first.item)}${p.more}</div>
+            <div class="text-xs text-gray-500 truncate">${esc(p.first.reason)}</div>
+            <div class="text-xs text-gray-400 mt-1">📍 ${esc(t.location)}</div>
+          </td>
+          <td class="p-4">${App.statusBadge(p.st)}${p.staff}</td>
+          <td class="p-4 text-right">${p.print}</td>
+        </tr>`;
+    }
+
+    function cardHtml(t) {
+      const p = parts(t);
+      return `
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs text-gray-500">#${App.padNo(t.no)} · ${App.formatDate(t.createdAt)}</div>
+              <div class="font-semibold text-gray-900 mt-0.5">${esc(p.first.item)}${p.more}</div>
+            </div>
+            ${App.statusBadge(p.st, 'shrink-0')}
+          </div>
+          <div class="text-sm text-gray-600 mt-1 line-clamp-2">${esc(p.first.reason)}</div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
+            ${App.typeBadge(t.type)}
+            <span>👤 ${esc(t.name)}</span>
+            <span>📍 ${esc(t.location)}</span>
+          </div>
+          ${p.staff}
+          ${p.print ? `<div class="mt-3">${p.print}</div>` : ''}
+        </div>`;
+    }
+
+    document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b === btn));
+      currentTab = btn.dataset.tab;
+      render();
+    }));
+    let searchTimer;
+    $('search').addEventListener('input', e => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { searchText = e.target.value; render(); }, 150);
+    });
+    $('load-more').addEventListener('click', () => { pageSize += (CFG.publicPageSize || 60); subscribe(); });
+
+    // ---------- ฟอร์ม ----------
+    const form = $('repair-form');
+    const modal = $('form-modal');
+    let submitting = false;
+    let imageJob = null; // { file, status, dataUrl, fileId, error, promise }
+
+    function itemRowHtml(index) {
+      return `
+        <div class="item-row bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4" data-index="${index}">
+          <div class="flex justify-between items-center mb-2">
+            <span class="item-title text-sm font-bold text-blue-800"></span>
+            <button type="button" class="remove-item text-xs text-red-600 hover:underline">ลบรายการนี้</button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
+            <input class="field f-item col-span-2 sm:col-span-4" maxlength="200" placeholder="รายการครุภัณฑ์ เช่น เครื่องปรับอากาศ" aria-label="รายการครุภัณฑ์">
+            <input class="field f-qty col-span-2 sm:col-span-2" maxlength="50" placeholder="จำนวน เช่น 1 เครื่อง" aria-label="จำนวน">
+            <input class="field f-code col-span-2 sm:col-span-6" maxlength="100" placeholder="หมายเลขครุภัณฑ์ (ถ้ามี)" aria-label="หมายเลขครุภัณฑ์">
+            <textarea class="field f-reason col-span-2 sm:col-span-6" rows="2" maxlength="500" placeholder="สาเหตุ / อาการชำรุด เช่น เปิดไม่ติด มีน้ำหยด" aria-label="สาเหตุหรืออาการชำรุด"></textarea>
+          </div>
+        </div>`;
+    }
+
+    function refreshItemRows() {
+      const rows = [...$('items').querySelectorAll('.item-row')];
+      rows.forEach((row, i) => {
+        row.querySelector('.item-title').textContent = 'รายการที่ ' + (i + 1);
+        row.querySelector('.remove-item').classList.toggle('hidden', rows.length === 1);
+      });
+      $('add-item').classList.toggle('hidden', rows.length >= MAX_ITEMS);
+    }
+
+    function addItemRow() {
+      $('items').insertAdjacentHTML('beforeend', itemRowHtml($('items').children.length));
+      refreshItemRows();
+    }
+
+    $('add-item').addEventListener('click', () => {
+      addItemRow();
+      const rows = $('items').querySelectorAll('.item-row');
+      rows[rows.length - 1].querySelector('.f-item').focus();
+    });
+    $('items').addEventListener('click', e => {
+      if (e.target.classList.contains('remove-item')) {
+        e.target.closest('.item-row').remove();
+        refreshItemRows();
       }
+    });
+
+    // รูป: ย่อ + อัปโหลดทันทีที่เลือก ระหว่างที่ผู้ใช้กรอกข้อมูลอื่นต่อ
+    function startImage(file) {
+      const job = { file, status: 'compressing' };
+      imageJob = job;
+      renderImage();
+      job.promise = (async () => {
+        const img = await App.compressImage(file);
+        job.dataUrl = img.dataUrl;
+        job.status = 'uploading';
+        if (imageJob === job) renderImage();
+        const id = await App.uploadImage(img);
+        job.fileId = id;
+        job.status = 'done';
+        if (imageJob === job) renderImage();
+        return id;
+      })();
+      job.promise.catch(err => {
+        job.status = 'error';
+        job.error = err.message || String(err);
+        if (imageJob === job) renderImage();
+      });
     }
 
-    function onSuccess(response) {
-      alert("✅ บันทึกข้อมูลสำเร็จ! สถานะของคุณอัปเดตบนตารางแล้ว");
-      closeModal('form-modal');
-      const btn = document.getElementById('submit-btn');
-      btn.disabled = false;
-      btn.innerHTML = 'บันทึกแจ้งซ่อม';
-      fetchPublicTickets(); 
-      
-      if(response && response.pdfUrl) window.open(response.pdfUrl, '_blank');
+    function renderImage() {
+      const box = $('image-preview');
+      const pick = $('image-pick');
+      if (!imageJob) { box.classList.add('hidden'); box.innerHTML = ''; pick.classList.remove('hidden'); return; }
+      pick.classList.add('hidden');
+      box.classList.remove('hidden');
+      const j = imageJob;
+      const state = {
+        compressing: '<span class="spinner text-blue-600"></span> กำลังย่อรูป...',
+        uploading: '<span class="spinner text-blue-600"></span> กำลังอัปโหลดรูป...',
+        done: '<span class="text-green-700">✓ อัปโหลดรูปแล้ว</span>',
+        error: `<span class="text-red-600">อัปโหลดไม่สำเร็จ: ${esc(j.error)}</span> <button type="button" id="retry-image" class="text-blue-700 underline ml-1">ลองใหม่</button>`
+      }[j.status];
+      box.innerHTML = `
+        <div class="flex items-center gap-3 border border-gray-200 rounded-xl p-3 bg-gray-50">
+          ${j.dataUrl ? `<img src="${j.dataUrl}" alt="รูปที่แนบ" class="w-20 h-20 object-cover rounded-lg">` : '<div class="w-20 h-20 rounded-lg bg-gray-200"></div>'}
+          <div class="flex-1 min-w-0 text-sm">
+            <div>${state}</div>
+            <button type="button" id="remove-image" class="text-xs text-red-600 hover:underline mt-2">ลบรูป</button>
+          </div>
+        </div>`;
+      $('remove-image').onclick = () => { imageJob = null; renderImage(); };
+      const retry = $('retry-image');
+      if (retry) retry.onclick = () => startImage(j.file);
     }
 
-    function onError(error) {
-      alert("❌ เกิดข้อผิดพลาด: " + error);
-      const btn = document.getElementById('submit-btn');
-      btn.disabled = false;
-      btn.innerHTML = 'บันทึกแจ้งซ่อม';
+    $('image-input').addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (file) startImage(file);
+    });
+
+    function resetForm() {
+      form.reset();
+      $('items').innerHTML = '';
+      addItemRow();
+      imageJob = null;
+      renderImage();
+      const saved = App.storageGet(REMEMBER_KEY);
+      if (saved) {
+        $('f-name').value = saved.name || '';
+        $('f-dept').value = saved.department || '';
+        $('f-location').value = saved.location || '';
+        $('f-phone').value = saved.phone || '';
+      }
+      form.classList.remove('hidden');
+      $('success-view').classList.add('hidden');
+    }
+
+    function openForm() {
+      resetForm();
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeForm() {
+      if (submitting) return;
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    $('open-form').addEventListener('click', openForm);
+    modal.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeForm));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('active')) closeForm(); });
+
+    function setSubmitting(on, label) {
+      submitting = on;
+      const btn = $('submit-btn');
+      btn.disabled = on;
+      btn.innerHTML = on ? `<span class="spinner text-white"></span> ${esc(label || 'กำลังบันทึก...')}` : 'บันทึกแจ้งซ่อม';
+    }
+
+    function collectItems() {
+      const items = [];
+      const problems = [];
+      [...$('items').querySelectorAll('.item-row')].forEach((row, i) => {
+        const item = row.querySelector('.f-item').value.trim();
+        const qty = row.querySelector('.f-qty').value.trim();
+        const code = row.querySelector('.f-code').value.trim();
+        const reason = row.querySelector('.f-reason').value.trim();
+        if (!item && !qty && !code && !reason) return;
+        if (!item || !reason) problems.push(`กรอกชื่อรายการและอาการของรายการที่ ${i + 1} ให้ครบ`);
+        items.push({ item, qty, code, reason });
+      });
+      if (!items.length) problems.push('กรอกรายการที่ต้องการซ่อมอย่างน้อย 1 รายการ');
+      return { items, problems };
+    }
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (submitting) return;
+      if (!db) { App.toast('ยังไม่ได้ตั้งค่า Firebase', 'error'); return; }
+
+      const type = (form.querySelector('input[name="type"]:checked') || {}).value;
+      const name = $('f-name').value.trim();
+      const department = $('f-dept').value.trim();
+      const location = $('f-location').value.trim();
+      const phone = $('f-phone').value.trim();
+      const { items, problems: itemProblems } = collectItems();
+
+      const problems = [
+        !type && 'เลือกประเภทงานซ่อม',
+        !name && 'กรอกชื่อผู้แจ้ง',
+        !department && 'กรอกกลุ่มงาน / กลุ่มชั้น',
+        !location && 'กรอกสถานที่',
+        ...itemProblems,
+        !imageJob && 'แนบภาพประกอบ'
+      ].filter(Boolean);
+      if (problems.length) { App.toast('กรุณา' + problems[0], 'warn'); return; }
+
+      try {
+        let imageId = '';
+        if (imageJob) {
+          if (imageJob.status !== 'done') setSubmitting(true, 'กำลังอัปโหลดรูป...');
+          try {
+            imageId = await imageJob.promise;
+          } catch (err) {
+            throw new Error('อัปโหลดรูปไม่สำเร็จ — กด "ลองใหม่" ที่ช่องรูปภาพ แล้วส่งอีกครั้ง');
+          }
+        }
+        setSubmitting(true, 'กำลังบันทึก...');
+
+        const ticketRef = doc(collection(db, 'tickets'));
+        const counterRef = doc(db, 'meta', 'counter');
+        const no = await runTransaction(db, async tx => {
+          const c = await tx.get(counterRef);
+          const next = (c.exists() ? Number(c.data().last) || 0 : 0) + 1;
+          tx.set(counterRef, { last: next });
+          tx.set(ticketRef, {
+            no: next, type, name, department, location, items, imageId,
+            status: App.DEFAULT_STATUS, staffName: '', repairReason: '',
+            createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+          });
+          tx.set(doc(db, 'ticketsPrivate', ticketRef.id), { phone, remark: '' });
+          return next;
+        });
+
+        App.storageSet(REMEMBER_KEY, { name, department, location, phone });
+        $('success-no').textContent = '#' + App.padNo(no);
+        $('success-print').href = 'print.html?id=' + encodeURIComponent(ticketRef.id);
+        form.classList.add('hidden');
+        $('success-view').classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        App.toast(err.code ? App.firestoreErrorText(err) : (err.message || String(err)), 'error');
+      } finally {
+        setSubmitting(false);
+      }
+    });
+
+    // ---------- เริ่มทำงาน ----------
+    if (!App.configReady().firebase) {
+      $('setup-banner').classList.remove('hidden');
+      setLive('error');
+      showListMessage('ยังไม่ได้ตั้งค่า Firebase ใน js/config.js');
+    } else {
+      try {
+        db = initDb();
+        subscribe();
+      } catch (err) {
+        console.error(err);
+        showListMessage('❌ เริ่มระบบไม่สำเร็จ: ' + esc(err.message), true);
+      }
     }
   </script>
 </body>

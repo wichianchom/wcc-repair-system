@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>เจ้าหน้าที่ - ระบบแจ้งซ่อม</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Kanit', sans-serif; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 1000; align-items: flex-start; justify-content: center; overflow-y: auto; }
+    .modal.active { display: flex; animation: fadeIn 0.18s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .spinner { border: 3px solid rgba(0,0,0,0.12); width: 18px; height: 18px; border-radius: 50%; border-left-color: currentColor; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .field { width: 100%; border: 1px solid #d1d5db; border-radius: 0.6rem; padding: 0.55rem 0.75rem; outline: none; background: #fff; }
+    .field:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.18); }
+    .stat.active { outline: 2px solid #1f2937; outline-offset: 2px; }
+  </style>
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+</head>
+<body class="min-h-screen bg-gray-100 text-gray-800">
+
+  <!-- ===== หน้าเข้าสู่ระบบ ===== -->
+  <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm text-center">
+      <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+      </div>
+      <h1 class="text-2xl font-bold mb-1">สำหรับเจ้าหน้าที่</h1>
+      <p class="text-gray-500 text-sm mb-6">ระบบแจ้งซ่อม <span data-school></span></p>
+      <div id="login-body">
+        <div class="text-gray-500 text-sm"><span class="spinner text-blue-600 mr-2"></span>กำลังตรวจสอบ...</div>
+      </div>
+      <a href="index.html" class="inline-block mt-6 text-sm text-gray-500 hover:text-gray-800">← กลับหน้าแจ้งซ่อม</a>
+    </div>
+  </div>
+
+  <!-- ===== แผงควบคุม ===== -->
+  <div id="app-view" class="hidden min-h-screen flex flex-col">
+    <header class="bg-gray-900 text-white shadow-md">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-xl font-bold">แผงควบคุมงานแจ้งซ่อม</h1>
+          <p class="text-gray-400 text-xs sm:text-sm truncate"><span data-school></span> · <span id="user-email"></span></p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="open-signers" class="bg-violet-600 hover:bg-violet-500 px-3 py-2 rounded-lg text-sm transition">✍️ ผู้ลงนาม</button>
+          <a href="index.html" class="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg text-sm transition">หน้าแจ้งซ่อม</a>
+          <button id="sign-out" class="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg text-sm transition">ออกจากระบบ</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+      <!-- สรุปจำนวน -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <button class="stat text-left bg-white rounded-xl p-4 shadow-sm border-l-4 border-amber-400 hover:shadow transition" data-stat="รอการตรวจสอบ">
+          <div class="text-sm text-gray-500">⏳ รอการตรวจสอบ</div><div class="text-3xl font-bold text-gray-900" data-stat-count="รอการตรวจสอบ">–</div>
+        </button>
+        <button class="stat text-left bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-500 hover:shadow transition" data-stat="ดำเนินการ">
+          <div class="text-sm text-gray-500">🛠️ ดำเนินการ</div><div class="text-3xl font-bold text-gray-900" data-stat-count="ดำเนินการ">–</div>
+        </button>
+        <button class="stat text-left bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500 hover:shadow transition" data-stat="เสร็จสิ้น">
+          <div class="text-sm text-gray-500">✅ เสร็จสิ้น</div><div class="text-3xl font-bold text-gray-900" data-stat-count="เสร็จสิ้น">–</div>
+        </button>
+        <button class="stat text-left bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-400 hover:shadow transition" data-stat="ยกเลิก">
+          <div class="text-sm text-gray-500">❌ ยกเลิก</div><div class="text-3xl font-bold text-gray-900" data-stat-count="ยกเลิก">–</div>
+        </button>
+      </div>
+
+      <div id="sub-banner" class="hidden mb-5 bg-violet-50 border border-violet-200 text-violet-900 rounded-xl px-4 py-3 text-sm"></div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-4 border-b border-gray-200 bg-gray-50 grid grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
+          <input id="search" type="search" class="field col-span-2 lg:col-span-1" placeholder="🔍 ค้นหาเลขที่ ชื่อ รายการ สถานที่" aria-label="ค้นหา">
+          <select id="filter-status" class="field" aria-label="กรองสถานะ">
+            <option value="all">ทุกสถานะ</option>
+            <option value="open">งานค้าง (รอ + ดำเนินการ)</option>
+          </select>
+          <select id="filter-type" class="field" aria-label="กรองประเภท">
+            <option value="all">ทุกประเภท</option>
+            <option value="IT">🖥️ งานไอที</option>
+            <option value="General">🏗️ งานทั่วไป</option>
+          </select>
+          <select id="sort" class="field" aria-label="เรียงลำดับ">
+            <option value="newest">ใหม่สุดก่อน</option>
+            <option value="oldest">เก่าสุดก่อน</option>
+          </select>
+          <button id="export-csv" class="bg-white border border-gray-300 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap">⬇️ ดาวน์โหลด CSV</button>
+        </div>
+
+        <table class="w-full text-left border-collapse hidden md:table">
+          <thead>
+            <tr class="border-b border-gray-200 text-sm text-gray-500">
+              <th class="p-4 font-semibold w-36">เลขที่ / วันที่</th>
+              <th class="p-4 font-semibold">ประเภท</th>
+              <th class="p-4 font-semibold">ผู้แจ้ง</th>
+              <th class="p-4 font-semibold">รายการ / สถานที่</th>
+              <th class="p-4 font-semibold">สถานะ</th>
+              <th class="p-4 font-semibold"><span class="sr-only">จัดการ</span></th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="divide-y divide-gray-100 text-sm"></tbody>
+        </table>
+        <div id="card-list" class="md:hidden divide-y divide-gray-100"></div>
+        <div id="list-state" class="p-10 text-center text-gray-500"><span class="spinner text-blue-600 mr-2"></span> กำลังโหลดข้อมูล...</div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mt-4 text-xs text-gray-500">
+        <span id="loaded-info"></span>
+        <button id="load-more" class="hidden text-blue-700 font-medium hover:underline">โหลดรายการเก่าเพิ่ม</button>
+        <span id="backup-info"></span>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== หน้าต่างจัดการงาน ===== -->
+  <div id="detail-modal" class="modal p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl my-auto">
+      <div class="px-5 py-4 border-b flex justify-between items-start bg-gray-50 rounded-t-2xl">
+        <div>
+          <h2 id="m-title" class="text-lg font-bold text-gray-900"></h2>
+          <p id="m-sub" class="text-xs text-gray-500 mt-0.5"></p>
+        </div>
+        <button type="button" data-close class="text-gray-400 hover:text-gray-700 text-3xl leading-none px-2" aria-label="ปิด">&times;</button>
+      </div>
+
+      <div class="p-5 space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <div><span class="text-gray-500">ผู้แจ้ง:</span> <span id="m-name" class="font-medium"></span></div>
+          <div><span class="text-gray-500">กลุ่มงาน:</span> <span id="m-dept" class="font-medium"></span></div>
+          <div><span class="text-gray-500">สถานที่:</span> <span id="m-location" class="font-medium"></span></div>
+          <div><span class="text-gray-500">โทร:</span> <span id="m-phone" class="font-medium"></span></div>
+        </div>
+
+        <div>
+          <div class="text-sm font-semibold mb-2">รายการที่แจ้ง</div>
+          <div id="m-items" class="border border-gray-200 rounded-xl divide-y divide-gray-100 text-sm"></div>
+        </div>
+
+        <div id="m-image"></div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label for="e-type" class="block text-sm font-semibold mb-1">ประเภทงาน</label>
+            <select id="e-type" class="field">
+              <option value="General">🏗️ งานทั่วไป</option>
+              <option value="IT">🖥️ งานไอที</option>
+            </select>
+          </div>
+          <div>
+            <label for="e-status" class="block text-sm font-semibold mb-1">สถานะ</label>
+            <select id="e-status" class="field"></select>
+          </div>
+          <div>
+            <label for="e-staff" class="block text-sm font-semibold mb-1">ผู้รับผิดชอบ</label>
+            <select id="e-staff" class="field"></select>
+          </div>
+        </div>
+
+        <div>
+          <label for="e-reason" class="block text-sm font-semibold mb-1">ผลการตรวจสอบ / การแก้ไข <span class="font-normal text-gray-400">(แสดงในใบแจ้งซ่อม)</span></label>
+          <textarea id="e-reason" class="field" rows="3" maxlength="2000" placeholder="เช่น เปลี่ยนสายไฟใหม่ ใช้งานได้ปกติ"></textarea>
+        </div>
+
+        <div>
+          <label for="e-remark" class="block text-sm font-semibold mb-1 text-orange-700">หมายเหตุภายใน <span class="font-normal text-gray-400">(เห็นเฉพาะเจ้าหน้าที่)</span></label>
+          <textarea id="e-remark" class="field !bg-orange-50 !border-orange-200" rows="2" maxlength="2000" placeholder="จดบันทึกเพิ่มเติม เช่น รออะไหล่"></textarea>
+          <p id="m-updated" class="text-xs text-gray-400 mt-1"></p>
+        </div>
+
+        <details id="m-signers" class="border border-gray-200 rounded-xl">
+          <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold">✍️ ผู้ลงนามในใบนี้ <span id="m-signers-hint" class="font-normal text-gray-400"></span></summary>
+          <div class="px-4 pb-4">
+            <p class="text-xs text-gray-500 mb-3">เว้นว่างไว้ = ใช้ชื่อตามเมนู "ผู้ลงนาม" (ชื่อสีเทาในช่อง) · กรอกเฉพาะช่องที่ต้องการเปลี่ยนในใบนี้</p>
+            <div id="m-signer-rows" class="space-y-2"></div>
+          </div>
+        </details>
+
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+          <span class="font-semibold">📄 แบบฟอร์มใน Drive:</span>
+          <span id="m-pdf-state" class="text-gray-500"></span>
+          <button id="m-pdf-save" type="button" class="ml-auto text-blue-700 font-medium hover:underline disabled:opacity-50">บันทึกลง Drive</button>
+          <p class="w-full text-xs text-gray-400">สร้าง/อัปเดตอัตโนมัติเมื่อบันทึกสถานะ "ดำเนินการ" หรือ "เสร็จสิ้น"</p>
+        </div>
+
+        <div class="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+          <a id="m-print" href="#" target="_blank" rel="noopener" class="sm:flex-none text-center px-5 py-3 rounded-xl font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition">🖨️ พิมพ์ใบแจ้งซ่อม</a>
+          <button id="save-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white py-3 rounded-xl text-base font-bold shadow-md transition inline-flex items-center justify-center gap-2">บันทึกและอัปเดตสถานะ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ตั้งค่าผู้ลงนาม ===== -->
+  <div id="signers-modal" class="modal p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="s-title">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl my-auto">
+      <div class="px-5 py-4 border-b flex justify-between items-start gap-3 bg-gray-50 rounded-t-2xl">
+        <div>
+          <h2 id="s-title" class="text-lg font-bold text-gray-900">✍️ ผู้ลงนามในบันทึกข้อความ</h2>
+          <p class="text-xs text-gray-500 mt-0.5">เมื่อผู้ลงนามไม่อยู่หรือติดภารกิจ ให้ตั้งผู้ปฏิบัติหน้าที่แทนพร้อมช่วงวันที่ ใบแจ้งซ่อมที่ลงวันที่ในช่วงนั้นจะใช้ชื่อผู้แทนอัตโนมัติ</p>
+        </div>
+        <button type="button" data-close-signers class="text-gray-400 hover:text-gray-700 text-3xl leading-none px-2" aria-label="ปิด">&times;</button>
+      </div>
+      <div id="s-rows" class="p-5 space-y-4"></div>
+      <div class="px-5 pb-5 flex flex-col-reverse sm:flex-row sm:items-center gap-3">
+        <span id="s-updated" class="text-xs text-gray-400 sm:mr-auto"></span>
+        <button type="button" data-close-signers class="px-5 py-3 rounded-xl font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition">ยกเลิก</button>
+        <button type="button" id="s-save" class="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-70 shadow-md transition">บันทึกผู้ลงนาม</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
+    import {
+      initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+      collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where,
+      writeBatch, serverTimestamp, getCountFromServer, setDoc, updateDoc
+    } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
+
+    const { CFG, esc, STATUS_LIST } = window.App;
+    const $ = id => document.getElementById(id);
+    document.querySelectorAll('[data-school]').forEach(el => { el.textContent = CFG.schoolName || ''; });
+
+    // ---------- หน้าเข้าสู่ระบบ ----------
+    function loginBody(html) { $('login-body').innerHTML = html; }
+
+    function showSignInButton(message) {
+      loginBody(`
+        ${message ? `<div class="text-sm text-red-600 bg-red-50 rounded-lg p-3 mb-4 text-left">${message}</div>` : ''}
+        <button id="google-btn" class="w-full flex items-center justify-center gap-3 border border-gray-300 hover:bg-gray-50 rounded-xl py-3 font-semibold transition">
+          <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+          เข้าสู่ระบบด้วย Google
+        </button>
+        <p class="text-xs text-gray-400 mt-3">ใช้บัญชี Google ที่ได้รับสิทธิ์เจ้าหน้าที่เท่านั้น</p>`);
+      $('google-btn').onclick = signIn;
+    }
+
+    // เปิดไฟล์จากในเครื่องโดยตรง (file://) ล็อกอิน Google ไม่ได้
+    function showFileNotice() {
+      loginBody(`
+        <div class="text-sm bg-amber-50 text-amber-900 rounded-lg p-4 text-left">
+          <b>เปิดไฟล์จากในเครื่องโดยตรงจะล็อกอินไม่ได้</b><br>
+          ต้องเปิดผ่านเว็บที่ขึ้นต้นด้วย <code>https://</code> เช่น<br>
+          <span class="break-all">https://wichianchom.github.io/wcc-repair-system/admin.html</span>
+        </div>`);
+    }
+
+    function showNoPermission(email) {
+      loginBody(`
+        <div class="text-sm bg-amber-50 text-amber-900 rounded-lg p-4 text-left mb-4">
+          บัญชี <b>${esc(email)}</b> ยังไม่มีสิทธิ์เจ้าหน้าที่<br>
+          <span class="text-xs">ให้ผู้ดูแลระบบเพิ่มอีเมลนี้ใน Firestore → collection <code>admins</code></span>
+        </div>
+        <button id="switch-btn" class="w-full border border-gray-300 hover:bg-gray-50 rounded-xl py-3 font-semibold transition">ใช้บัญชีอื่น</button>`);
+      $('switch-btn').onclick = () => signOut(auth);
+    }
+
+    // ---------- Firebase ----------
+    if (!App.configReady().firebase) {
+      loginBody('<div class="text-sm text-amber-900 bg-amber-50 rounded-lg p-4">⚙️ ยังไม่ได้ตั้งค่า Firebase ในไฟล์ <code>js/config.js</code><br>ดูขั้นตอนใน README.md</div>');
+      throw new Error('Firebase config missing');
+    }
+
+    const fbApp = initializeApp(CFG.firebase);
+    let db;
+    try {
+      db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+    } catch (e) {
+      console.warn(e);
+      db = initializeFirestore(fbApp, {});
+    }
+    const auth = getAuth(fbApp);
+    let currentUser = null;
+
+    async function signIn() {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        const code = err.code || '';
+        if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+          await signInWithRedirect(auth, provider);
+        } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          /* ผู้ใช้ปิดหน้าต่างเอง */
+        } else if (location.protocol === 'file:' || code === 'auth/operation-not-supported-in-this-environment') {
+          showFileNotice();
+        } else if (code === 'auth/unauthorized-domain') {
+          showSignInButton(`โดเมน <b>${esc(location.hostname)}</b> ยังไม่ได้รับอนุญาต<br>เพิ่มใน Firebase → Authentication → Settings → Authorized domains`);
+        } else if (code === 'auth/operation-not-allowed' || code === 'auth/configuration-not-found') {
+          showSignInButton('ยังไม่ได้เปิดการเข้าสู่ระบบด้วย Google ใน Firebase → Authentication → Sign-in method');
+        } else {
+          showSignInButton(esc(err.message || String(err)));
+        }
+      }
+    }
+
+    $('sign-out').onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, async user => {
+      stopListening();
+      currentUser = user;
+      if (!user) {
+        $('app-view').classList.add('hidden');
+        $('login-view').classList.remove('hidden');
+        if (location.protocol === 'file:') showFileNotice(); else showSignInButton();
+        return;
+      }
+      loginBody('<div class="text-gray-500 text-sm"><span class="spinner text-blue-600 mr-2"></span>กำลังตรวจสอบสิทธิ์...</div>');
+      try {
+        const adminDoc = await getDoc(doc(db, 'admins', user.email));
+        if (!adminDoc.exists()) { showNoPermission(user.email); return; }
+      } catch (err) {
+        console.error(err);
+        showSignInButton('ตรวจสอบสิทธิ์ไม่สำเร็จ: ' + esc(App.firestoreErrorText(err)));
+        return;
+      }
+      $('user-email').textContent = user.email;
+      $('login-view').classList.add('hidden');
+      $('app-view').classList.remove('hidden');
+      startListening();
+      listenSettings();
+      loadBackupInfo();
+    });
+
+    // ---------- รายการงาน ----------
+    let tickets = [];
+    let byId = new Map();
+    let pageSize = CFG.adminPageSize || 300;
+    let unsub = null;
+    let countTimer = null;
+
+    function startListening() {
+      if (unsub) unsub();
+      const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(pageSize));
+      unsub = onSnapshot(q, snap => {
+        tickets = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        byId = new Map(tickets.map(t => [t.id, t]));
+        $('load-more').classList.toggle('hidden', snap.size < pageSize);
+        $('loaded-info').textContent = `แสดง ${tickets.length} รายการล่าสุด · อัปเดตอัตโนมัติ`;
+        render();
+        if (editingId && byId.has(editingId)) refreshPdfRow(editingId);
+        clearTimeout(countTimer);
+        countTimer = setTimeout(refreshCounts, 800);
+      }, err => {
+        console.error(err);
+        showListMessage('❌ ' + esc(App.firestoreErrorText(err)), true);
+      });
+    }
+
+    function stopListening() {
+      if (unsub) { unsub(); unsub = null; }
+      if (unsubSettings) { unsubSettings(); unsubSettings = null; }
+      clearTimeout(countTimer);
+    }
+
+    async function refreshCounts() {
+      try {
+        const col = collection(db, 'tickets');
+        const results = await Promise.all(STATUS_LIST.map(s => getCountFromServer(query(col, where('status', '==', s)))));
+        STATUS_LIST.forEach((s, i) => { setStat(s, results[i].data().count); });
+      } catch (err) {
+        console.warn('นับจากรายการที่โหลดไว้แทน:', err);
+        STATUS_LIST.forEach(s => setStat(s, tickets.filter(t => App.statusOf(t) === s).length));
+      }
+    }
+    function setStat(status, n) {
+      const el = document.querySelector(`[data-stat-count="${status}"]`);
+      if (el) el.textContent = n.toLocaleString('th-TH');
+    }
+
+    // ตัวกรอง
+    const statusSelect = $('filter-status');
+    STATUS_LIST.forEach(s => statusSelect.insertAdjacentHTML('beforeend', `<option value="${esc(s)}">${App.STATUS[s].icon} ${esc(s)}</option>`));
+
+    function setStatusFilter(v) {
+      statusSelect.value = v;
+      document.querySelectorAll('[data-stat]').forEach(b => b.classList.toggle('active', b.dataset.stat === v));
+      render();
+    }
+    document.querySelectorAll('[data-stat]').forEach(b => b.addEventListener('click', () => {
+      setStatusFilter(statusSelect.value === b.dataset.stat ? 'all' : b.dataset.stat);
+    }));
+    statusSelect.addEventListener('change', () => setStatusFilter(statusSelect.value));
+    $('filter-type').addEventListener('change', render);
+    $('sort').addEventListener('change', render);
+    let searchTimer;
+    $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); });
+    $('load-more').addEventListener('click', () => { pageSize += (CFG.adminPageSize || 300); startListening(); });
+
+    function matches(t, q) {
+      const items = Array.isArray(t.items) ? t.items : [];
+      const hay = [App.padNo(t.no), t.name, t.department, t.location, t.staffName,
+        ...items.flatMap(i => [i && i.item, i && i.code, i && i.reason])].join(' ').toLowerCase();
+      return hay.includes(q.replace(/^#/, ''));
+    }
+
+    function filtered() {
+      const st = statusSelect.value;
+      const type = $('filter-type').value;
+      const q = $('search').value.trim().toLowerCase();
+      let list = tickets.filter(t => {
+        const s = App.statusOf(t);
+        if (st === 'open' && !(s === 'รอการตรวจสอบ' || s === 'ดำเนินการ')) return false;
+        if (st !== 'all' && st !== 'open' && s !== st) return false;
+        if (type !== 'all' && (t.type || 'General') !== type) return false;
+        return !q || matches(t, q);
+      });
+      if ($('sort').value === 'oldest') list = list.slice().reverse();
+      return list;
+    }
+
+    function showListMessage(html, isError) {
+      $('table-body').innerHTML = '';
+      $('card-list').innerHTML = '';
+      const el = $('list-state');
+      el.className = 'p-10 text-center ' + (isError ? 'text-red-600' : 'text-gray-500');
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    }
+
+    function render() {
+      const list = filtered();
+      if (!list.length) { showListMessage(tickets.length ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ยังไม่มีรายการแจ้งซ่อม'); return; }
+      $('list-state').classList.add('hidden');
+      $('table-body').innerHTML = list.map(rowHtml).join('');
+      $('card-list').innerHTML = list.map(cardHtml).join('');
+    }
+
+    function firstItem(t) {
+      const items = Array.isArray(t.items) ? t.items.filter(Boolean) : [];
+      return { first: items[0] || {}, more: items.length > 1 ? ` <span class="text-xs text-gray-400 font-normal">+${items.length - 1}</span>` : '' };
+    }
+
+    function rowHtml(t) {
+      const { first, more } = firstItem(t);
+      return `
+        <tr class="hover:bg-gray-50 align-top cursor-pointer" data-open="${esc(t.id)}">
+          <td class="p-4 whitespace-nowrap">
+            <div class="font-semibold text-gray-900">#${App.padNo(t.no)}</div>
+            <div class="text-xs text-gray-500">${App.formatDate(t.createdAt)}</div>
+          </td>
+          <td class="p-4">${App.typeBadge(t.type)}</td>
+          <td class="p-4"><div class="font-medium text-gray-900">${esc(t.name)}</div><div class="text-xs text-gray-500">${esc(t.department)}</div></td>
+          <td class="p-4 max-w-sm">
+            <div class="font-medium text-gray-900">${esc(first.item)}${more}${t.imageId ? ' <span title="มีรูป">📷</span>' : ''}</div>
+            <div class="text-xs text-gray-500 truncate">${esc(first.reason)}</div>
+            <div class="text-xs text-gray-400 mt-1">📍 ${esc(t.location)}</div>
+          </td>
+          <td class="p-4">${App.statusBadge(App.statusOf(t))}${t.staffName ? `<div class="text-xs text-gray-500 mt-1.5">${esc(t.staffName)}</div>` : ''}</td>
+          <td class="p-4 text-right"><button class="bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-black text-sm" data-open="${esc(t.id)}">จัดการ</button></td>
+        </tr>`;
+    }
+
+    function cardHtml(t) {
+      const { first, more } = firstItem(t);
+      return `
+        <button class="w-full text-left p-4 hover:bg-gray-50" data-open="${esc(t.id)}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs text-gray-500">#${App.padNo(t.no)} · ${App.formatDate(t.createdAt)}</div>
+              <div class="font-semibold text-gray-900 mt-0.5">${esc(first.item)}${more}${t.imageId ? ' 📷' : ''}</div>
+            </div>
+            ${App.statusBadge(App.statusOf(t), 'shrink-0')}
+          </div>
+          <div class="text-sm text-gray-600 mt-1 line-clamp-2">${esc(first.reason)}</div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
+            ${App.typeBadge(t.type)}<span>👤 ${esc(t.name)}</span><span>📍 ${esc(t.location)}</span>
+          </div>
+          ${t.staffName ? `<div class="text-xs text-gray-500 mt-1.5">ผู้รับผิดชอบ: ${esc(t.staffName)}</div>` : ''}
+        </button>`;
+    }
+
+    document.addEventListener('click', e => {
+      const el = e.target.closest('[data-open]');
+      if (el && !$('detail-modal').contains(el)) openModal(el.dataset.open);
+    });
+
+    // ---------- หน้าต่างจัดการ ----------
+    const modal = $('detail-modal');
+    let editingId = null;
+    let saving = false;
+
+    STATUS_LIST.forEach(s => $('e-status').insertAdjacentHTML('beforeend', `<option value="${esc(s)}">${App.STATUS[s].icon} ${esc(s)}</option>`));
+
+    function fillStaff(type, current) {
+      const names = [...((CFG.staff || {})[type] || [])];
+      if (current && !names.includes(current)) names.unshift(current);
+      $('e-staff').innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>' +
+        names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      $('e-staff').value = current || '';
+    }
+    $('e-type').addEventListener('change', () => { fillStaff($('e-type').value, $('e-staff').value); toggleGeneralRows(); });
+
+    async function openModal(id) {
+      const t = byId.get(id);
+      if (!t) return;
+      editingId = id;
+      const type = t.type === 'IT' ? 'IT' : 'General';
+      $('m-title').textContent = `ใบแจ้งซ่อม #${App.padNo(t.no)}`;
+      $('m-sub').textContent = `แจ้งเมื่อ ${App.formatDate(t.createdAt)} · อัปเดต ${App.formatDate(t.updatedAt)}`;
+      $('m-name').textContent = t.name || '-';
+      $('m-dept').textContent = t.department || '-';
+      $('m-location').textContent = t.location || '-';
+      $('m-phone').innerHTML = '<span class="text-gray-400">กำลังโหลด...</span>';
+      const items = Array.isArray(t.items) ? t.items.filter(Boolean) : [];
+      $('m-items').innerHTML = items.map((it, i) => `
+        <div class="p-3">
+          <div class="font-medium">${i + 1}. ${esc(it.item)}${it.qty ? ` <span class="text-gray-600 font-normal">จำนวน ${esc(it.qty)}</span>` : ''} ${it.code ? `<span class="text-xs text-gray-500 font-normal">(เลขครุภัณฑ์ ${esc(it.code)})</span>` : ''}</div>
+          <div class="text-gray-600 whitespace-pre-line">${esc(it.reason)}</div>
+        </div>`).join('') || '<div class="p-3 text-gray-400">-</div>';
+      $('m-image').innerHTML = t.imageId ? `
+        <a href="${App.driveView(t.imageId)}" target="_blank" rel="noopener" class="inline-block">
+          <img src="${App.driveThumb(t.imageId, 600)}" alt="รูปประกอบ" class="max-h-48 rounded-xl border border-gray-200" loading="lazy" referrerpolicy="no-referrer">
+          <span class="block text-xs text-blue-700 mt-1">เปิดรูปขนาดเต็ม ↗</span>
+        </a>` : '';
+
+      $('e-type').value = type;
+      $('e-status').value = App.statusOf(t);
+      fillStaff(type, t.staffName || '');
+      $('e-reason').value = t.repairReason || '';
+      $('e-remark').value = '';
+      $('e-remark').disabled = true;
+      $('m-updated').textContent = '';
+      $('m-print').href = 'print.html?id=' + encodeURIComponent(id);
+      renderTicketSigners(t);
+      refreshPdfRow(id);
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+
+      try {
+        const p = await getDoc(doc(db, 'ticketsPrivate', id));
+        if (editingId !== id) return;
+        const d = p.exists() ? p.data() : {};
+        $('m-phone').innerHTML = d.phone ? `<a href="tel:${esc(d.phone)}" class="text-blue-700 underline">${esc(d.phone)}</a>` : '-';
+        $('e-remark').value = d.remark || '';
+        if (d.updatedBy) $('m-updated').textContent = `แก้ไขล่าสุดโดย ${d.updatedBy}${d.updatedAt ? ' · ' + App.formatDate(d.updatedAt) : ''}`;
+      } catch (err) {
+        console.warn(err);
+        $('m-phone').textContent = '(โหลดไม่สำเร็จ)';
+      } finally {
+        if (editingId === id) $('e-remark').disabled = false;
+      }
+    }
+
+    function closeModal() {
+      if (saving) return;
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+      editingId = null;
+    }
+    modal.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeModal));
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if ($('signers-modal').classList.contains('active')) closeSigners();
+      else if (modal.classList.contains('active')) closeModal();
+    });
+
+    $('save-btn').addEventListener('click', async () => {
+      if (!editingId || saving) return;
+      const id = editingId;
+      const type = $('e-type').value;
+      const status = $('e-status').value;
+      const staffName = $('e-staff').value;
+      const repairReason = $('e-reason').value.trim();
+      const remark = $('e-remark').value.trim();
+
+      if ((status === 'ดำเนินการ' || status === 'เสร็จสิ้น') && !staffName) { App.toast('กรุณาเลือกผู้รับผิดชอบ', 'warn'); return; }
+      if (status === 'เสร็จสิ้น' && !repairReason) { App.toast('กรุณากรอกผลการตรวจสอบ / การแก้ไข ก่อนปิดงาน', 'warn'); return; }
+
+      saving = true;
+      const btn = $('save-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner text-white"></span> กำลังบันทึก...';
+      try {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'tickets', id), { type, status, staffName, repairReason, signers: collectTicketSigners(), updatedAt: serverTimestamp() });
+        const priv = { updatedBy: currentUser.email, updatedAt: serverTimestamp() };
+        if (!$('e-remark').disabled) priv.remark = remark;
+        batch.set(doc(db, 'ticketsPrivate', id), priv, { merge: true });
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
+        await Promise.race([batch.commit(), timeout]);
+        App.toast('✅ บันทึกเรียบร้อย');
+        saving = false;
+        closeModal();
+        if (status === 'ดำเนินการ' || status === 'เสร็จสิ้น') savePdf(id, false);
+      } catch (err) {
+        console.error(err);
+        App.toast(err.message === 'timeout'
+          ? 'ยังบันทึกไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต (ระบบจะบันทึกให้เมื่อกลับมาออนไลน์)'
+          : 'บันทึกไม่สำเร็จ: ' + App.firestoreErrorText(err), 'error');
+      } finally {
+        saving = false;
+        btn.disabled = false;
+        btn.textContent = 'บันทึกและอัปเดตสถานะ';
+      }
+    });
+
+    // ---------- ผู้ลงนาม ----------
+    let signerSettings = null;
+    let unsubSettings = null;
+    const slotLabel = k => (((CFG.approvers || {})[k] || {}).heading || k).replace(/^ความคิดเห็นของ/, '');
+    const thaiDay = s => s ? new Date(s + 'T12:00:00+07:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+
+    function listenSettings() {
+      if (unsubSettings) unsubSettings();
+      unsubSettings = onSnapshot(doc(db, 'settings', 'signers'), snap => {
+        signerSettings = snap.exists() ? snap.data() : null;
+        renderSubBanner();
+      }, err => console.warn('อ่านการตั้งค่าผู้ลงนามไม่ได้ (ตรวจว่า Publish firestore.rules ชุดใหม่แล้ว):', err));
+    }
+
+    function subState(sub, today) {
+      if (!sub || !sub.on || !sub.name) return '';
+      if (App.subActiveOn(sub, today)) return 'active';
+      return sub.from && sub.from > today ? 'upcoming' : 'ended';
+    }
+
+    function renderSubBanner() {
+      const today = App.ymd(new Date());
+      const slots = (signerSettings && signerSettings.slots) || {};
+      const items = App.SIGNER_SLOTS.map(k => ({ k, sub: (slots[k] || {}).sub, st: subState((slots[k] || {}).sub, today) }))
+        .filter(x => x.st === 'active' || x.st === 'upcoming');
+      const el = $('sub-banner');
+      if (!items.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      el.innerHTML = '✍️ ผู้ปฏิบัติหน้าที่แทน: ' + items.map(({ k, sub, st }) =>
+        `<b>${esc(slotLabel(k))}</b> → ${esc(sub.name)} <span class="text-violet-700">(${st === 'active'
+          ? (sub.to ? 'ถึง ' + thaiDay(sub.to) : 'ใช้อยู่')
+          : 'เริ่ม ' + thaiDay(sub.from)})</span>`).join(' · ') +
+        ' <button type="button" class="underline ml-1" data-edit-signers>แก้ไข</button>';
+      el.classList.remove('hidden');
+    }
+
+    function signerCard(k, s) {
+      const base = (CFG.approvers || {})[k] || {};
+      const sub = s.sub || {};
+      return `
+        <div class="border border-gray-200 rounded-xl p-4" data-slot="${k}">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="font-semibold text-gray-900">${esc(slotLabel(k))}</div>
+            <span class="s-chip text-xs"></span>
+          </div>
+          <label class="block text-xs text-gray-500 mb-1">ชื่อผู้ลงนามปกติ</label>
+          <input class="field s-name" maxlength="100" value="${esc(s.name || base.name || '')}">
+          <label class="inline-flex items-center gap-2 mt-3 text-sm cursor-pointer select-none">
+            <input type="checkbox" class="s-on w-4 h-4 accent-violet-600" ${sub.on ? 'checked' : ''}> มีผู้ปฏิบัติหน้าที่แทน
+          </label>
+          <div class="s-sub ${sub.on ? '' : 'hidden'} mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-violet-50 rounded-lg p-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs text-gray-600 mb-1">ชื่อผู้ปฏิบัติหน้าที่แทน</label>
+              <input class="field s-subname" maxlength="100" value="${esc(sub.name || '')}" placeholder="เช่น นายสมชาย ใจดี">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs text-gray-600 mb-1">ข้อความใต้ชื่อ</label>
+              <input class="field s-note" maxlength="150" value="${esc(sub.note || '')}" placeholder="${esc(App.defaultSubNote(k))}">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">ตั้งแต่วันที่</label>
+              <input type="date" class="field s-from" value="${esc(sub.from || '')}">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">ถึงวันที่</label>
+              <input type="date" class="field s-to" value="${esc(sub.to || '')}">
+            </div>
+            <p class="sm:col-span-2 text-xs text-gray-500">ไม่ใส่วันที่ = ใช้ผู้แทนกับใบแจ้งซ่อมทุกใบ จนกว่าจะเอาเครื่องหมายถูกออก</p>
+          </div>
+        </div>`;
+    }
+
+    function updateChip(card) {
+      const sub = {
+        on: card.querySelector('.s-on').checked, name: card.querySelector('.s-subname').value.trim(),
+        from: card.querySelector('.s-from').value, to: card.querySelector('.s-to').value
+      };
+      const st = subState(sub, App.ymd(new Date()));
+      const chip = card.querySelector('.s-chip');
+      chip.className = 's-chip text-xs px-2 py-0.5 rounded-full ' + ({
+        active: 'bg-violet-600 text-white', upcoming: 'bg-violet-100 text-violet-800', ended: 'bg-gray-100 text-gray-500'
+      }[st] || 'hidden');
+      chip.textContent = { active: 'ใช้ผู้แทนอยู่', upcoming: 'ตั้งไว้ล่วงหน้า', ended: 'พ้นช่วงแล้ว' }[st] || '';
+    }
+
+    function openSigners() {
+      const slots = (signerSettings && signerSettings.slots) || {};
+      $('s-rows').innerHTML = App.SIGNER_SLOTS.map(k => signerCard(k, slots[k] || {})).join('');
+      $('s-rows').querySelectorAll('[data-slot]').forEach(updateChip);
+      $('s-updated').textContent = signerSettings && signerSettings.updatedBy
+        ? `แก้ไขล่าสุดโดย ${signerSettings.updatedBy}${signerSettings.updatedAt ? ' · ' + App.formatDate(signerSettings.updatedAt) : ''}` : '';
+      $('signers-modal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSigners() {
+      $('signers-modal').classList.remove('active');
+      if (!modal.classList.contains('active')) document.body.style.overflow = '';
+    }
+
+    $('open-signers').addEventListener('click', openSigners);
+    document.addEventListener('click', e => { if (e.target.closest('[data-edit-signers]')) openSigners(); });
+    $('signers-modal').querySelectorAll('[data-close-signers]').forEach(b => b.addEventListener('click', closeSigners));
+    $('signers-modal').addEventListener('click', e => { if (e.target === $('signers-modal')) closeSigners(); });
+    $('s-rows').addEventListener('input', e => { const c = e.target.closest('[data-slot]'); if (c) updateChip(c); });
+    $('s-rows').addEventListener('change', e => {
+      const card = e.target.closest('[data-slot]');
+      if (!card) return;
+      if (e.target.classList.contains('s-on')) {
+        card.querySelector('.s-sub').classList.toggle('hidden', !e.target.checked);
+        const note = card.querySelector('.s-note');
+        if (e.target.checked && !note.value.trim()) note.value = App.defaultSubNote(card.dataset.slot);
+        if (e.target.checked) card.querySelector('.s-subname').focus();
+      }
+      updateChip(card);
+    });
+
+    $('s-save').addEventListener('click', async () => {
+      const slots = {};
+      for (const card of $('s-rows').querySelectorAll('[data-slot]')) {
+        const k = card.dataset.slot;
+        const sub = {
+          on: card.querySelector('.s-on').checked,
+          name: card.querySelector('.s-subname').value.trim(),
+          note: card.querySelector('.s-note').value.trim(),
+          from: card.querySelector('.s-from').value,
+          to: card.querySelector('.s-to').value
+        };
+        if (sub.on && !sub.name) { App.toast(`กรุณากรอกชื่อผู้ปฏิบัติหน้าที่แทน (${slotLabel(k)})`, 'warn'); card.querySelector('.s-subname').focus(); return; }
+        if (sub.on && sub.from && sub.to && sub.from > sub.to) { App.toast(`วันที่เริ่มต้องไม่หลังวันที่สิ้นสุด (${slotLabel(k)})`, 'warn'); return; }
+        slots[k] = { name: card.querySelector('.s-name').value.trim(), sub };
+      }
+      const btn = $('s-save');
+      btn.disabled = true;
+      try {
+        await setDoc(doc(db, 'settings', 'signers'), { slots, updatedBy: currentUser.email, updatedAt: serverTimestamp() });
+        App.toast('✅ บันทึกผู้ลงนามแล้ว');
+        closeSigners();
+      } catch (err) {
+        console.error(err);
+        App.toast('บันทึกไม่สำเร็จ: ' + App.firestoreErrorText(err), 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ผู้ลงนามเฉพาะใบ (ในหน้าต่างจัดการงาน)
+    function renderTicketSigners(t) {
+      const own = t.signers || {};
+      $('m-signer-rows').innerHTML = App.SIGNER_SLOTS.map(k => {
+        const def = App.resolveSigner(k, signerSettings, { createdAt: t.createdAt });
+        const o = own[k] || {};
+        return `
+          <div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr_1fr] gap-2 sm:items-center" data-tslot="${k}" ${/^general/.test(k) ? 'data-general' : ''}>
+            <div class="text-sm text-gray-600">${esc(slotLabel(k))}</div>
+            <input class="field t-name text-sm" maxlength="100" value="${esc(o.name || '')}" placeholder="${esc((def.name || 'ชื่อผู้ลงนาม') + (def.source === 'sub' ? ' (ผู้แทน)' : ''))}" aria-label="ชื่อผู้ลงนาม ${esc(slotLabel(k))}">
+            <input class="field t-note text-sm" maxlength="150" value="${esc(o.note || '')}" placeholder="ข้อความใต้ชื่อ (ถ้ามี)" aria-label="ข้อความใต้ชื่อ ${esc(slotLabel(k))}">
+          </div>`;
+      }).join('');
+      toggleGeneralRows();
+      const n = App.SIGNER_SLOTS.filter(k => own[k] && own[k].name).length;
+      $('m-signers-hint').textContent = n ? `(เปลี่ยนไว้ ${n} ช่อง)` : '(ตามที่ตั้งไว้)';
+      $('m-signers').open = n > 0;
+    }
+    function toggleGeneralRows() {
+      const it = $('e-type').value === 'IT';
+      $('m-signer-rows').querySelectorAll('[data-general]').forEach(r => r.classList.toggle('hidden', it));
+    }
+    $('m-signer-rows').addEventListener('change', e => {
+      if (!e.target.classList.contains('t-name')) return;
+      const row = e.target.closest('[data-tslot]');
+      const note = row.querySelector('.t-note');
+      if (e.target.value.trim() && !note.value.trim()) note.value = App.defaultSubNote(row.dataset.tslot);
+    });
+    function collectTicketSigners() {
+      const out = {};
+      $('m-signer-rows').querySelectorAll('[data-tslot]').forEach(r => {
+        const name = r.querySelector('.t-name').value.trim();
+        if (name) out[r.dataset.tslot] = { name, note: r.querySelector('.t-note').value.trim() };
+      });
+      return out;
+    }
+
+    // ---------- บันทึกแบบฟอร์ม PDF ลง Google Drive ----------
+    const pdfBusy = new Set();
+
+    function refreshPdfRow(id) {
+      if (editingId !== id) return;
+      const t = byId.get(id) || {};
+      const busy = pdfBusy.has(id);
+      $('m-pdf-state').innerHTML = busy
+        ? '<span class="spinner text-blue-600" style="width:14px;height:14px;border-width:2px"></span> กำลังบันทึก...'
+        : t.pdfId ? `<a href="${App.driveView(t.pdfId)}" target="_blank" rel="noopener" class="text-blue-700 underline">เปิดไฟล์ ↗</a>` : 'ยังไม่ได้บันทึก';
+      const btn = $('m-pdf-save');
+      btn.disabled = busy;
+      btn.classList.toggle('hidden', busy);
+      btn.textContent = t.pdfId ? 'อัปเดตไฟล์' : 'บันทึกลง Drive';
+    }
+    $('m-pdf-save').addEventListener('click', () => { if (editingId) savePdf(editingId, true); });
+
+    // สร้าง PDF จากหน้า print.html ใน iframe ที่ซ่อนไว้
+    function renderPdf(id) {
+      return new Promise((resolve, reject) => {
+        const f = document.createElement('iframe');
+        f.setAttribute('aria-hidden', 'true');
+        f.tabIndex = -1;
+        f.style.cssText = 'position:fixed;left:-12000px;top:0;width:1000px;height:1500px;border:0;visibility:hidden;';
+        const timer = setTimeout(() => finish(new Error('สร้าง PDF นานเกินไป')), 90000);
+        function onMsg(e) {
+          if (e.origin !== location.origin || e.source !== f.contentWindow) return;
+          const m = e.data || {};
+          if (m.type !== 'repair-pdf') return;
+          finish(m.ok ? null : new Error(m.error || 'สร้าง PDF ไม่สำเร็จ'), m.data);
+        }
+        function finish(err, data) {
+          clearTimeout(timer);
+          window.removeEventListener('message', onMsg);
+          f.remove();
+          if (err) reject(err); else resolve(data);
+        }
+        window.addEventListener('message', onMsg);
+        f.src = 'print.html?export=1&id=' + encodeURIComponent(id);
+        document.body.appendChild(f);
+      });
+    }
+
+    async function savePdf(id, manual) {
+      if (!App.configReady().appsScript) {
+        if (manual) App.toast('ยังไม่ได้ตั้งค่า appsScriptUrl ใน js/config.js จึงบันทึกลง Drive ไม่ได้', 'warn');
+        return;
+      }
+      if (pdfBusy.has(id)) return;
+      pdfBusy.add(id);
+      refreshPdfRow(id);
+      const label = 'ใบแจ้งซ่อม #' + App.padNo((byId.get(id) || {}).no);
+      try {
+        const data = await renderPdf(id);
+        const idToken = await currentUser.getIdToken();
+        const res = await fetch(CFG.appsScriptUrl, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'saveForm', ticketId: id, idToken, data })
+        });
+        let out;
+        try { out = JSON.parse(await res.text()); } catch (e) { throw new Error('Apps Script ตอบกลับผิดรูปแบบ'); }
+        if (out.status !== 'success') throw new Error(out.message || 'บันทึกไม่สำเร็จ');
+        await updateDoc(doc(db, 'tickets', id), { pdfId: out.fileId });
+        App.toast(`📄 บันทึก${label} ลง Drive แล้ว`);
+      } catch (err) {
+        console.error(err);
+        const msg = /ไม่รู้จักคำสั่ง/.test(err.message) ? 'ต้องอัปเดตโค้ด Apps Script และ Deploy เป็น New version ก่อน' : (err.message || String(err));
+        App.toast(`บันทึก${label} ลง Drive ไม่สำเร็จ: ${msg}`, 'error');
+      } finally {
+        pdfBusy.delete(id);
+        refreshPdfRow(id);
+      }
+    }
+
+    // ---------- ดาวน์โหลด CSV (เปิดใน Excel / Google Sheets ได้) ----------
+    $('export-csv').addEventListener('click', async () => {
+      const btn = $('export-csv');
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner text-gray-600"></span>';
+      try {
+        const [ts, ps] = await Promise.all([
+          getDocs(query(collection(db, 'tickets'), orderBy('createdAt', 'desc'))),
+          getDocs(collection(db, 'ticketsPrivate'))
+        ]);
+        const priv = {};
+        ps.forEach(d => { priv[d.id] = d.data(); });
+        const header = ['เลขที่', 'วันที่แจ้ง', 'ประเภท', 'ผู้แจ้ง', 'กลุ่มงาน/กลุ่มชั้น', 'สถานที่', 'เบอร์โทร', 'รายการ',
+          'สถานะ', 'ผู้รับผิดชอบ', 'ผลการตรวจสอบ/การแก้ไข', 'หมายเหตุภายใน', 'ลิงก์รูป', 'แบบฟอร์ม PDF', 'อัปเดตล่าสุด'];
+        const lines = [header.map(App.csvCell).join(',')];
+        ts.forEach(d => {
+          const t = d.data({ serverTimestamps: 'estimate' });
+          const p = priv[d.id] || {};
+          const items = (Array.isArray(t.items) ? t.items : []).filter(Boolean)
+            .map((it, i) => `${i + 1}) ${it.item || ''}${it.qty ? ' จำนวน ' + it.qty : ''}${it.code ? ' [' + it.code + ']' : ''} - ${it.reason || ''}`).join(' | ');
+          lines.push([
+            App.padNo(t.no), App.formatDate(t.createdAt), (App.TYPES[t.type] || App.TYPES.General).label,
+            t.name, t.department, t.location, p.phone || '', items, App.statusOf(t), t.staffName || '',
+            t.repairReason || '', p.remark || '', App.driveView(t.imageId), App.driveView(t.pdfId), App.formatDate(t.updatedAt)
+          ].map(App.csvCell).join(','));
+        });
+        const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `แจ้งซ่อม-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      } catch (err) {
+        console.error(err);
+        App.toast('ดาวน์โหลดไม่สำเร็จ: ' + App.firestoreErrorText(err), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    });
+
+    // ---------- สถานะ Backup (ถามจาก Apps Script) ----------
+    async function loadBackupInfo() {
+      const el = $('backup-info');
+      if (!App.configReady().appsScript) { el.textContent = '⚠️ ยังไม่ได้ตั้งค่า Apps Script (Backup / อัปโหลดรูป)'; return; }
+      try {
+        const res = await fetch(CFG.appsScriptUrl);
+        const info = await res.json();
+        el.textContent = info.lastBackup
+          ? `💾 Backup ล่าสุด ${App.formatDate(info.lastBackup)} (${info.lastBackupCount ?? '-'} รายการ)`
+          : '💾 ยังไม่เคย Backup — รันฟังก์ชัน setup() ใน Apps Script';
+        if (info.lastBackupError) el.textContent += ' · ⚠️ ครั้งล่าสุดผิดพลาด';
+      } catch (err) {
+        el.textContent = '⚠️ ติดต่อ Apps Script ไม่ได้';
+      }
+    }
+  </script>
+</body>
+</html>
