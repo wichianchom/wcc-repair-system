@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>เจ้าหน้าที่ - ระบบแจ้งซ่อม</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- สไตล์ Tailwind ที่แปลงไว้ล่วงหน้า (เร็วกว่าใช้ cdn.tailwindcss.com) ถ้าเพิ่ม class ใหม่แล้วไม่แสดงผล ให้เปลี่ยนบรรทัดนี้กลับเป็น <script src="https://cdn.tailwindcss.com"></script> -->
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="preconnect" href="https://www.gstatic.com">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -218,7 +223,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
     import {
-      initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+      initializeFirestore,
       collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where,
       writeBatch, serverTimestamp, getCountFromServer, setDoc, updateDoc
     } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
@@ -226,6 +231,12 @@
       getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged
     } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
 
+    // ไฟล์ js/config.js หรือ js/common.js หายไป (เช่น อัปโหลดขึ้น GitHub ไม่ครบ)
+    if (!window.App || !window.APP_CONFIG) {
+      const box = document.getElementById('login-body');
+      if (box) box.innerHTML = '<div style="color:#b91c1c;padding:24px;text-align:center">⚠️ โหลดไฟล์ระบบไม่ครบ: ไม่พบ <b>js/config.js</b> หรือ <b>js/common.js</b><br>ตรวจว่าอัปโหลดโฟลเดอร์ <b>js</b>, <b>css</b> และ <b>img</b> ขึ้น GitHub แล้ว</div>';
+      throw new Error('missing js/config.js or js/common.js');
+    }
     const { CFG, esc, STATUS_LIST } = window.App;
     const $ = id => document.getElementById(id);
     document.querySelectorAll('[data-school]').forEach(el => { el.textContent = CFG.schoolName || ''; });
@@ -271,13 +282,8 @@
     }
 
     const fbApp = initializeApp(CFG.firebase);
-    let db;
-    try {
-      db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
-    } catch (e) {
-      console.warn(e);
-      db = initializeFirestore(fbApp, {});
-    }
+    // ไม่เก็บข้อมูลไว้ในเครื่อง (เครื่องในโรงเรียนใช้ร่วมกัน และมีเบอร์โทรผู้แจ้ง)
+    const db = initializeFirestore(fbApp, {});
     const auth = getAuth(fbApp);
     let currentUser = null;
 

@@ -101,6 +101,12 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
     import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 
+    // ไฟล์ js/config.js หรือ js/common.js หายไป (เช่น อัปโหลดขึ้น GitHub ไม่ครบ)
+    if (!window.App || !window.APP_CONFIG) {
+      const box = document.getElementById('root');
+      if (box) box.innerHTML = '<div style="color:#b91c1c;padding:24px;text-align:center">⚠️ โหลดไฟล์ระบบไม่ครบ: ไม่พบ <b>js/config.js</b> หรือ <b>js/common.js</b><br>ตรวจว่าอัปโหลดโฟลเดอร์ <b>js</b>, <b>css</b> และ <b>img</b> ขึ้น GitHub แล้ว</div>';
+      throw new Error('missing js/config.js or js/common.js');
+    }
     const { CFG, esc } = window.App;
     const $ = id => document.getElementById(id);
     const TECH = CFG.techSection || {};

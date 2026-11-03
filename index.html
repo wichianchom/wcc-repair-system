@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบแจ้งซ่อม - โรงเรียนวิเชียรชม</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- สไตล์ Tailwind ที่แปลงไว้ล่วงหน้า (เร็วกว่าใช้ cdn.tailwindcss.com) ถ้าเพิ่ม class ใหม่แล้วไม่แสดงผล ให้เปลี่ยนบรรทัดนี้กลับเป็น <script src="https://cdn.tailwindcss.com"></script> -->
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="preconnect" href="https://www.gstatic.com">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://firestore.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -186,10 +190,16 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
     import {
-      initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+      initializeFirestore,
       collection, query, orderBy, limit, onSnapshot, doc, runTransaction, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 
+    // ไฟล์ js/config.js หรือ js/common.js หายไป (เช่น อัปโหลดขึ้น GitHub ไม่ครบ)
+    if (!window.App || !window.APP_CONFIG) {
+      const box = document.getElementById('list-state');
+      if (box) box.innerHTML = '<div style="color:#b91c1c;padding:24px;text-align:center">⚠️ โหลดไฟล์ระบบไม่ครบ: ไม่พบ <b>js/config.js</b> หรือ <b>js/common.js</b><br>ตรวจว่าอัปโหลดโฟลเดอร์ <b>js</b>, <b>css</b> และ <b>img</b> ขึ้น GitHub แล้ว</div>';
+      throw new Error('missing js/config.js or js/common.js');
+    }
     const { CFG, esc, STATUS_LIST } = window.App;
     const $ = id => document.getElementById(id);
     const MAX_ITEMS = 3; // ให้ใบแจ้งซ่อมพิมพ์จบใน 1 หน้า A4
@@ -199,14 +209,22 @@
 
     // ---------- Firebase ----------
     let db = null;
+    // แต่ละแท็บต่อฐานข้อมูลเองโดยตรง (ไม่ใช้แคช IndexedDB ที่ต้องรอแท็บอื่น)
     function initDb() {
-      const app = initializeApp(CFG.firebase);
-      try {
-        return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
-      } catch (e) {
-        console.warn('ใช้แคชในหน่วยความจำแทน:', e);
-        return initializeFirestore(app, {});
-      }
+      return initializeFirestore(initializeApp(CFG.firebase), {});
+    }
+
+    // จำรายการล่าสุดไว้ในเครื่อง เพื่อแสดงทันทีตอนเปิดหน้า ระหว่างรอข้อมูลสด
+    const LIST_KEY = 'repair:list:v1';
+    function saveListCache(list) {
+      App.storageSet(LIST_KEY, list.slice(0, CFG.publicPageSize || 60).map(t => Object.assign({}, t, {
+        createdAt: (App.toDate(t.createdAt) || new Date()).getTime(),
+        updatedAt: (App.toDate(t.updatedAt) || new Date()).getTime()
+      })));
+    }
+    function loadListCache() {
+      const list = App.storageGet(LIST_KEY);
+      return Array.isArray(list) ? list : null;
     }
 
     // ---------- รายการแจ้งซ่อม ----------
@@ -216,25 +234,48 @@
     let currentTab = 'all';
     let searchText = '';
 
+    let gotServerData = false;
+    let slowTimer = null;
+
     function subscribe() {
       if (unsub) unsub();
       const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(pageSize));
+      clearTimeout(slowTimer);
+      slowTimer = setTimeout(() => { if (!gotServerData) showSlow(); }, 10000);
       unsub = onSnapshot(q, { includeMetadataChanges: true }, snap => {
         tickets = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
         $('load-more').classList.toggle('hidden', snap.size < pageSize);
+        if (!snap.metadata.fromCache) {
+          gotServerData = true;
+          clearTimeout(slowTimer);
+          saveListCache(tickets);
+        }
         setLive(snap.metadata.fromCache ? 'cache' : 'live');
         render();
       }, err => {
         console.error(err);
+        clearTimeout(slowTimer);
         setLive('error');
         showListMessage('❌ ' + esc(App.firestoreErrorText(err)), true);
       });
     }
 
+    // ต่อฐานข้อมูลไม่ได้ภายใน 10 วินาที: บอกสาเหตุที่พบบ่อย (ยังเชื่อมต่อต่อไปเรื่อย ๆ)
+    function showSlow() {
+      const fileMode = location.protocol === 'file:';
+      $('live-state').innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> ' +
+        (fileMode ? 'เปิดจากไฟล์ในเครื่อง ต่อฐานข้อมูลไม่ได้ — ให้เปิดผ่านเว็บ https://' : 'เชื่อมต่อช้ากว่าปกติ กำลังลองใหม่... (ตรวจสอบอินเทอร์เน็ต)');
+      if (!tickets.length) {
+        showListMessage(fileMode
+          ? 'เปิดจากไฟล์ในเครื่องโดยตรงจะโหลดข้อมูลไม่ได้<br>ให้เปิดผ่านเว็บ เช่น <span class="break-all">https://wichianchom.github.io/wcc-repair-system/</span>'
+          : '<span class="spinner text-blue-600 mr-2"></span> ยังเชื่อมต่อฐานข้อมูลไม่ได้ กำลังลองใหม่...<br><span class="text-xs">ถ้านานเกิน 1 นาที ลองรีเฟรชหน้า หรือเปลี่ยนเครือข่ายอินเทอร์เน็ต</span>');
+      }
+    }
+
     function setLive(state) {
       const el = $('live-state');
       if (state === 'live') el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> อัปเดตอัตโนมัติ';
-      else if (state === 'cache') el.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> กำลังเชื่อมต่อ (แสดงข้อมูลล่าสุดที่จำไว้)';
+      else if (state === 'cache') el.innerHTML = '<span class="spinner text-amber-500" style="width:10px;height:10px;border-width:2px"></span> กำลังอัปเดต (แสดงข้อมูลล่าสุดที่จำไว้)';
       else el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span> เชื่อมต่อไม่ได้';
     }
 
@@ -571,6 +612,8 @@
       showListMessage('ยังไม่ได้ตั้งค่า Firebase ใน js/config.js');
     } else {
       try {
+        const cached = loadListCache();
+        if (cached && cached.length) { tickets = cached; setLive('cache'); render(); }
         db = initDb();
         subscribe();
       } catch (err) {
