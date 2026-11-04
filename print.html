@@ -421,6 +421,13 @@
         return;
       }
 
+      // พิมพ์ได้เมื่อเจ้าหน้าที่รับงาน (ดำเนินการ / เสร็จสิ้น) และลงความเห็นแล้วเท่านั้น
+      const block = App.printBlock(t);
+      if (block) {
+        notice(`🔒 ยังพิมพ์ใบแจ้งซ่อมเลขที่ ${esc(App.padNo(t.no))} ไม่ได้<br>${esc(block)}<br><br><a href="index.html">← กลับหน้ารายการ</a>`);
+        return;
+      }
+
       // รอฟอนต์ก่อนวัดตำแหน่งตัวอักษร
       try { await Promise.all([document.fonts.load(`${SIZE}pt ${FONT}`, 'กขค๑'), document.fonts.load(`700 ${SIZE}pt ${FONT}`, 'กขค')]); } catch (e) { /* ใช้ฟอนต์สำรอง */ }
       measureBaseline();

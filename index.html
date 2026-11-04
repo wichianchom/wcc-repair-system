@@ -178,9 +178,9 @@
         <h3 class="text-xl font-bold text-gray-900">แจ้งซ่อมเรียบร้อยแล้ว</h3>
         <p class="text-gray-500 mt-1">เลขที่ใบแจ้งซ่อม</p>
         <p id="success-no" class="text-4xl font-bold text-blue-700 tracking-wider my-2"></p>
-        <p class="text-sm text-gray-500 mb-6">ติดตามสถานะได้ที่หน้ารายการ ระบบจะอัปเดตให้อัตโนมัติ</p>
+        <p class="text-sm text-gray-500">ติดตามสถานะได้ที่หน้ารายการ ระบบจะอัปเดตให้อัตโนมัติ</p>
+        <p class="text-sm bg-amber-50 text-amber-800 rounded-xl px-4 py-3 mt-4 mb-6">🖨️ พิมพ์ใบแจ้งซ่อมได้เมื่อเจ้าหน้าที่ตรวจสอบและลงความเห็นแล้ว<br><span class="text-xs">จะมีปุ่ม "พิมพ์" ขึ้นในรายการของคุณ</span></p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center">
-          <a id="success-print" href="#" target="_blank" rel="noopener" class="px-5 py-3 rounded-xl font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition">🖨️ พิมพ์ใบแจ้งซ่อม</a>
           <button type="button" data-close class="px-5 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 transition">ปิด</button>
         </div>
       </div>
@@ -314,6 +314,15 @@
       $('card-list').innerHTML = list.map(cardHtml).join('');
     }
 
+    // ปุ่มพิมพ์: แสดงเมื่อเจ้าหน้าที่รับงานและลงความเห็นแล้ว
+    function printHtml(t, st) {
+      if (st === 'ยกเลิก') return '';
+      const block = App.printBlock(t);
+      if (!block) return `<a href="print.html?id=${encodeURIComponent(t.id)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-medium whitespace-nowrap">🖨️ พิมพ์</a>`;
+      const label = st === 'รอการตรวจสอบ' ? 'พิมพ์ได้หลังตรวจสอบ' : 'รอความเห็นเจ้าหน้าที่';
+      return `<span class="inline-flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap" title="${esc(block)}">🔒 ${label}</span>`;
+    }
+
     function parts(t) {
       const items = Array.isArray(t.items) ? t.items.filter(Boolean) : [];
       const first = items[0] || {};
@@ -322,9 +331,7 @@
         st, first,
         more: items.length > 1 ? `<span class="text-xs text-gray-400 font-normal"> +${items.length - 1} รายการ</span>` : '',
         staff: t.staffName ? `<div class="text-xs text-gray-500 mt-1.5">ผู้รับผิดชอบ: ${esc(t.staffName)}</div>` : '',
-        print: st !== 'ยกเลิก'
-          ? `<a href="print.html?id=${encodeURIComponent(t.id)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-medium whitespace-nowrap">🖨️ พิมพ์</a>`
-          : ''
+        print: printHtml(t, st)
       };
     }
 
@@ -594,7 +601,6 @@
 
         App.storageSet(REMEMBER_KEY, { name, department, location, phone });
         $('success-no').textContent = '#' + App.padNo(no);
-        $('success-print').href = 'print.html?id=' + encodeURIComponent(ticketRef.id);
         form.classList.add('hidden');
         $('success-view').classList.remove('hidden');
       } catch (err) {

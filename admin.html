@@ -168,7 +168,7 @@
         </div>
 
         <div>
-          <label for="e-reason" class="block text-sm font-semibold mb-1">ผลการตรวจสอบ / การแก้ไข <span class="font-normal text-gray-400">(แสดงในใบแจ้งซ่อม)</span></label>
+          <label for="e-reason" class="block text-sm font-semibold mb-1">ความคิดเห็นของเจ้าหน้าที่ / ผลการตรวจสอบ <span class="font-normal text-gray-400">(พิมพ์ลงในใบแจ้งซ่อม · ต้องกรอกก่อนจึงจะพิมพ์ได้)</span></label>
           <textarea id="e-reason" class="field" rows="3" maxlength="2000" placeholder="เช่น เปลี่ยนสายไฟใหม่ ใช้งานได้ปกติ"></textarea>
         </div>
 
@@ -354,7 +354,7 @@
         $('load-more').classList.toggle('hidden', snap.size < pageSize);
         $('loaded-info').textContent = `แสดง ${tickets.length} รายการล่าสุด · อัปเดตอัตโนมัติ`;
         render();
-        if (editingId && byId.has(editingId)) refreshPdfRow(editingId);
+        if (editingId && byId.has(editingId)) { refreshPdfRow(editingId); refreshPrintBtn(editingId); }
         clearTimeout(countTimer);
         countTimer = setTimeout(refreshCounts, 800);
       }, err => {
@@ -538,6 +538,7 @@
       $('e-remark').disabled = true;
       $('m-updated').textContent = '';
       $('m-print').href = 'print.html?id=' + encodeURIComponent(id);
+      refreshPrintBtn(id);
       renderTicketSigners(t);
       refreshPdfRow(id);
       modal.classList.add('active');
@@ -582,7 +583,11 @@
       const remark = $('e-remark').value.trim();
 
       if ((status === 'ดำเนินการ' || status === 'เสร็จสิ้น') && !staffName) { App.toast('กรุณาเลือกผู้รับผิดชอบ', 'warn'); return; }
-      if (status === 'เสร็จสิ้น' && !repairReason) { App.toast('กรุณากรอกผลการตรวจสอบ / การแก้ไข ก่อนปิดงาน', 'warn'); return; }
+      if ((status === 'ดำเนินการ' || status === 'เสร็จสิ้น') && !repairReason) {
+        App.toast(`กรุณาลงความเห็นของเจ้าหน้าที่ก่อนเปลี่ยนเป็น "${status}" (ผู้แจ้งจะพิมพ์ใบแจ้งซ่อมได้หลังจากนี้)`, 'warn');
+        $('e-reason').focus();
+        return;
+      }
 
       saving = true;
       const btn = $('save-btn');
@@ -800,15 +805,29 @@
       if (editingId !== id) return;
       const t = byId.get(id) || {};
       const busy = pdfBusy.has(id);
+      const block = App.printBlock(t);
       $('m-pdf-state').innerHTML = busy
         ? '<span class="spinner text-blue-600" style="width:14px;height:14px;border-width:2px"></span> กำลังบันทึก...'
-        : t.pdfId ? `<a href="${App.driveView(t.pdfId)}" target="_blank" rel="noopener" class="text-blue-700 underline">เปิดไฟล์ ↗</a>` : 'ยังไม่ได้บันทึก';
+        : t.pdfId ? `<a href="${App.driveView(t.pdfId)}" target="_blank" rel="noopener" class="text-blue-700 underline">เปิดไฟล์ ↗</a>`
+        : block ? 'ยังบันทึกไม่ได้ (ต้องเป็น "ดำเนินการ" และลงความเห็นก่อน)' : 'ยังไม่ได้บันทึก';
       const btn = $('m-pdf-save');
-      btn.disabled = busy;
-      btn.classList.toggle('hidden', busy);
+      btn.disabled = busy || !!block;
+      btn.classList.toggle('hidden', busy || !!block);
       btn.textContent = t.pdfId ? 'อัปเดตไฟล์' : 'บันทึกลง Drive';
     }
     $('m-pdf-save').addEventListener('click', () => { if (editingId) savePdf(editingId, true); });
+
+    // ปุ่มพิมพ์ในหน้าต่างจัดการ: ใช้กติกาเดียวกับหน้าแจ้งซ่อม (ดูจากข้อมูลที่บันทึกแล้ว)
+    function refreshPrintBtn(id) {
+      if (editingId !== id) return;
+      const block = App.printBlock(byId.get(id) || {});
+      const a = $('m-print');
+      a.classList.toggle('pointer-events-none', !!block);
+      a.classList.toggle('opacity-50', !!block);
+      a.setAttribute('aria-disabled', block ? 'true' : 'false');
+      a.title = block ? block + ' (บันทึกสถานะก่อน)' : '';
+      a.textContent = block ? '🔒 พิมพ์ได้หลังลงความเห็น' : '🖨️ พิมพ์ใบแจ้งซ่อม';
+    }
 
     // สร้าง PDF จากหน้า print.html ใน iframe ที่ซ่อนไว้
     function renderPdf(id) {
