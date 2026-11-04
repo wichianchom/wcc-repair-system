@@ -151,7 +151,7 @@
         <div>
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm font-semibold">รายการที่ต้องการซ่อม <span class="text-red-500">*</span></span>
-            <span class="text-xs text-gray-400">สูงสุด 3 รายการ</span>
+            <span class="text-xs text-gray-400">สูงสุด 2 รายการ (ตามแบบฟอร์ม)</span>
           </div>
           <div id="items" class="space-y-3"></div>
           <button type="button" id="add-item" class="mt-3 w-full border-2 border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-700 text-gray-500 rounded-xl py-2.5 text-sm font-medium transition">+ เพิ่มรายการ</button>
@@ -202,7 +202,7 @@
     }
     const { CFG, esc, STATUS_LIST } = window.App;
     const $ = id => document.getElementById(id);
-    const MAX_ITEMS = 3; // ให้ใบแจ้งซ่อมพิมพ์จบใน 1 หน้า A4
+    const MAX_ITEMS = 2; // แบบฟอร์มบันทึกข้อความมีช่องรายการ 2 ช่อง
     const REMEMBER_KEY = 'repair:reporter';
 
     document.querySelectorAll('[data-school]').forEach(el => { el.textContent = CFG.schoolName || ''; });

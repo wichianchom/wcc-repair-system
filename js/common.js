@@ -162,8 +162,9 @@
 
   function defaultSubNote(slot) {
     const a = (CFG.approvers || {})[slot] || {};
+    // ผู้อำนวยการ: แสดงแทนบรรทัดตำแหน่งใต้ชื่อ / ช่องอื่น: แสดงต่อท้ายชื่อ (ตำแหน่งมีอยู่แล้วในบรรทัด "ลงชื่อ")
     if (slot === 'director') return 'รักษาราชการแทน' + (a.sign || '');
-    return 'ปฏิบัติหน้าที่แทน' + ((a.heading || '').replace(/^ความคิดเห็นของ/, '') || a.sign || '');
+    return 'ปฏิบัติหน้าที่แทน';
   }
 
   function subActiveOn(sub, day) {

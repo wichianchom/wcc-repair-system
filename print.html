@@ -5,15 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>บันทึกข้อความแจ้งซ่อม</title>
+  <link rel="preload" href="fonts/THSarabunNew.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&family=Kanit:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* ระยะขอบตามแบบฟอร์มเดิม: บน/ซ้าย/ขวา 2 ซม. ล่าง 1 ซม. */
-    @page { size: A4; margin: 20mm 20mm 10mm 20mm; }
-    :root { --lh: 16pt; --indent: 25mm; }
+    /* ฟอนต์เดียวกับแบบฟอร์มต้นฉบับ: ใช้ TH SarabunIT๙ ที่ติดตั้งในเครื่อง ถ้าไม่มีใช้ TH Sarabun New (ขนาดตัวอักษรเท่ากันทุกตัว) */
+    @font-face { font-family: 'MemoTH'; font-weight: 400; src: local('TH SarabunIT๙'), local('THSarabunIT๙'), url('fonts/THSarabunNew.woff2') format('woff2'); }
+    @font-face { font-family: 'MemoTH'; font-weight: 700; src: local('TH SarabunIT๙ Bold'), local('THSarabunIT๙-Bold'), url('fonts/THSarabunNew-Bold.woff2') format('woff2'); }
+
+    @page { size: A4; margin: 0; }
     * { box-sizing: border-box; }
     html, body { margin: 0; }
-    body { background: #e5e7eb; color: #000; font-family: 'Sarabun', 'TH SarabunIT๙', 'TH Sarabun New', 'TH SarabunPSK', sans-serif; }
+    body { background: #e5e7eb; color: #000; font-family: 'MemoTH', sans-serif; }
 
     /* แถบเครื่องมือ (ไม่พิมพ์) */
     .toolbar { position: sticky; top: 0; z-index: 10; background: #1e3a8a; color: #fff; font-family: 'Kanit', sans-serif; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
@@ -25,61 +28,26 @@
     .toolbar .info { font-size: 13px; opacity: .85; }
     .notice { max-width: 210mm; margin: 40px auto; background: #fff; border-radius: 12px; padding: 32px; text-align: center; font-family: 'Kanit', sans-serif; color: #374151; }
 
-    /* หน้ากระดาษ A4 (บนจอจำลองระยะขอบด้วย padding / ตอนพิมพ์ใช้ @page) */
-    .page { position: relative; width: 210mm; min-height: 297mm; margin: 12px auto; padding: 20mm 20mm 10mm 20mm; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.15); font-size: 12pt; line-height: var(--lh); }
+    /* หน้ากระดาษ A4 — หน่วย pt เท่ากับในไฟล์ PDF ต้นฉบับ (595.32 x 841.92 pt) */
+    .page { position: relative; width: 595.32pt; height: 841.92pt; margin: 12px auto; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.15); overflow: hidden; }
     .page + .page { margin-top: 18px; }
+    .page > img.bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 
-    .ref { position: absolute; top: 0; right: 0; font-size: 9pt; line-height: 1.2; color: #444; }
-    .photo .ref { position: static; text-align: right; margin-bottom: 4mm; }
-    .head { position: relative; height: 16mm; margin-bottom: 1mm; }
-    .garuda { position: absolute; left: 0; top: 0; height: 14.5mm; }
-    .title { text-align: center; font-size: 23pt; font-weight: 700; line-height: 16mm; }
-    .hrow { display: flex; align-items: flex-end; font-size: 12pt; --lh: 17pt; line-height: var(--lh); }
-    .hrow b { font-size: 14.5pt; font-weight: 700; white-space: nowrap; margin-right: 3mm; }
+    /* ข้อความที่กรอกทับแบบฟอร์ม */
+    .ov { position: absolute; white-space: pre; line-height: 1; font-family: 'MemoTH'; font-weight: 400; color: #000; z-index: 2; }
+    .ov.lead { z-index: 0; }          /* จุดไข่ปลาที่วาดเอง (หน้าแนบ) อยู่ใต้ข้อความ */
+    .ov.bold { font-weight: 700; }
+    .wipe { position: absolute; background: #fff; z-index: 1; }   /* ลบจุดไข่ปลาใต้ข้อความ เหมือนพิมพ์ทับใน Word */
 
-    .row { display: flex; align-items: flex-start; }
-    .lbl { white-space: nowrap; }
-    .indent { padding-left: var(--indent); }
-    .center { text-align: center; }
-    .bold { font-weight: 700; }
-    .gap { height: calc(var(--lh) * 0.35); }
-
-    /* ช่องกรอกแบบเส้นประ — สคริปต์จะวาดเส้นใต้ทุกบรรทัด (ใช้ border จึงพิมพ์ออกเสมอ
-       ไม่ต้องเปิด "กราฟิกพื้นหลัง" ในหน้าต่างพิมพ์) */
-    .fill {
-      position: relative; flex: 1 1 0; min-width: 8mm; min-height: var(--lh); padding: 0 2mm;
-      white-space: pre-wrap; overflow-wrap: anywhere;
-    }
-    .fill .ln { position: absolute; left: 0; right: 0; height: 0; border-bottom: 1px dotted #000; pointer-events: none; }
-    .fill.v { color: #0b1d4d; }
-    .w-qty { flex: 0 0 38mm; }
-    .w-code { flex: 0 0 44mm; }
-    .w-name { display: inline-block; width: 52mm; vertical-align: bottom; }
-    .lines2 { min-height: calc(var(--lh) * 2); }
-
-    .sig { margin-left: auto; width: 100mm; }
-    .sig .row { align-items: flex-end; }
-
-    .approvals { font-size: 11pt; --lh: 14.8pt; line-height: var(--lh); margin-top: calc(var(--lh) * 0.4); }
-    .signrow { margin-top: calc(var(--lh) * 0.5); }
-    .pair { display: grid; grid-template-columns: 0.92fr 1.08fr; column-gap: 6mm; margin-top: calc(var(--lh) * 0.4); }
-    .blk .row { align-items: flex-end; }
-    .blk .name { text-align: center; }
-    .director { margin-top: calc(var(--lh) * 0.4); }
-    .director .sigline { width: 80mm; margin: 0 auto; }
-
-    /* หน้าภาพประกอบ */
-    .photo h2 { font-size: 18pt; text-align: center; margin: 0 0 2mm; }
-    .photo .meta { text-align: center; color: #333; margin-bottom: 6mm; }
-    .photo .imgwrap { height: 220mm; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; }
-    .photo img { max-width: 100%; max-height: 100%; object-fit: contain; }
-
-    .row, .sig, .blk, .pair, .director { break-inside: avoid; }
+    /* หน้าแนบ: รูปภาพ / ความคิดเห็นของเจ้าหน้าที่ */
+    .attach .photo { position: absolute; display: flex; align-items: center; justify-content: center; border: 0.5pt solid #9ca3af; overflow: hidden; z-index: 3; }
+    .attach .photo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .attach .photo.none { color: #4b5563; font-size: 16pt; font-family: 'MemoTH'; }
 
     @media print {
       body { background: #fff; }
       .toolbar, .notice { display: none !important; }
-      .page, .page + .page { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; break-after: page; }
+      .page, .page + .page { margin: 0; box-shadow: none; break-after: page; }
       .page:last-of-type { break-after: auto; }
       .page.no-print { display: none; }
     }
@@ -92,7 +60,7 @@
   <div class="toolbar">
     <a class="back" href="index.html">← หน้ารายการ</a>
     <button class="print" id="print-btn" disabled>🖨️ พิมพ์ / บันทึกเป็น PDF</button>
-    <label id="photo-opt" hidden><input type="checkbox" id="photo-toggle" checked> แนบหน้าภาพประกอบ</label>
+    <label id="attach-opt" hidden><input type="checkbox" id="attach-toggle" checked> <span id="attach-label">พิมพ์หน้าแนบ</span></label>
     <span class="info" id="info">กำลังโหลด...</span>
   </div>
   <div id="root"></div>
@@ -104,7 +72,7 @@
     // ไฟล์ js/config.js หรือ js/common.js หายไป (เช่น อัปโหลดขึ้น GitHub ไม่ครบ)
     if (!window.App || !window.APP_CONFIG) {
       const box = document.getElementById('root');
-      if (box) box.innerHTML = '<div style="color:#b91c1c;padding:24px;text-align:center">⚠️ โหลดไฟล์ระบบไม่ครบ: ไม่พบ <b>js/config.js</b> หรือ <b>js/common.js</b><br>ตรวจว่าอัปโหลดโฟลเดอร์ <b>js</b>, <b>css</b> และ <b>img</b> ขึ้น GitHub แล้ว</div>';
+      if (box) box.innerHTML = '<div style="color:#b91c1c;padding:24px;text-align:center">⚠️ โหลดไฟล์ระบบไม่ครบ: ไม่พบ <b>js/config.js</b> หรือ <b>js/common.js</b><br>ตรวจว่าอัปโหลดโฟลเดอร์ <b>js</b>, <b>css</b>, <b>img</b> และ <b>fonts</b> ขึ้น GitHub แล้ว</div>';
       throw new Error('missing js/config.js or js/common.js');
     }
     const { CFG, esc } = window.App;
@@ -115,12 +83,285 @@
     const H2C_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
     const JSPDF_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
     const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
+    // ฟอนต์ TH SarabunIT๙ แสดงตัวเลขเป็นเลขไทย จึงแปลงตัวเลขให้เหมือนกัน
     const th = s => String(s == null ? '' : s).replace(/\d/g, d => THAI_DIGITS[d]);
+    const FONT = 'MemoTH';
+    const SIZE = 16;      // ขนาดตัวอักษรในแบบฟอร์ม (pt)
+    const MIN_SIZE = 11;  // ข้อความยาวจะย่อลงได้ถึงขนาดนี้
 
-    // นับความยาวที่มองเห็น (ไม่นับสระบน-ล่างและวรรณยุกต์)
-    const visibleLen = v => String(v || '').replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length;
-    const fill = (value, cls) => `<span class="fill ${value ? 'v' : ''} ${cls || ''}">${esc(value || '')}</span>`;
+    // ================================================================
+    //  ตำแหน่งช่องกรอก (หน่วย pt วัดจากไฟล์ PDF ต้นฉบับ)  b = เส้นฐานของบรรทัด
+    // ================================================================
+    const LEFT_COL = [56.7, 300], RIGHT_COL = [304, 541], FULL = [56.7, 541];
+    const LAYOUT = {
+      General: {
+        bg: 'img/memo-general.png',
+        date: { x: 312, b: 166.2, w: 218, line: true },
+        name: { x: 165.9, b: 237.6, w: 150.3 },
+        dept: { x: 387.2, b: 237.6, w: 111.4 },
+        items: [
+          { item: { x: 120.6, b: 273.8, w: 184 }, qty: { x: 334.3, b: 273.8, w: 196.9 }, code: { x: 187.4, b: 291.9, w: 101 },
+            reason: [{ x: 326.4, b: 291.9, w: 204.7 }, { x: 115.5, b: 310.0, w: 416.5 }] },
+          { item: { x: 120.6, b: 328.0, w: 184 }, qty: { x: 334.3, b: 328.0, w: 196.9 }, code: { x: 187.4, b: 346.1, w: 101 },
+            reason: [{ x: 326.4, b: 346.1, w: 204.7 }, { x: 115.5, b: 364.2, w: 416.5 }] }
+        ],
+        reporter: { pl: 260.6, pr: 388.4, b: 472.7 },
+        signers: {
+          generalHead:   { cx: 128.05, b: 545.0, col: LEFT_COL },
+          generalDeputy: { cx: 399.0,  b: 545.0, col: RIGHT_COL },
+          supplyOfficer: { cx: 130.15, b: 617.3, col: LEFT_COL },
+          supplyHead:    { cx: 392.4,  b: 617.3, col: RIGHT_COL },
+          budgetHead:    { cx: 128.85, b: 696.5, col: LEFT_COL },
+          budgetDeputy:  { cx: 387.4,  b: 696.5, col: RIGHT_COL },
+          director:      { cx: 302.85, b: 775.6, col: FULL, titleB: 793.6 }
+        }
+      },
+      IT: {
+        bg: 'img/memo-it.png',
+        date: { x: 312, b: 144.0, w: 218, line: true },
+        name: { x: 165.9, b: 215.5, w: 150.3 },
+        dept: { x: 387.2, b: 215.5, w: 111.4 },
+        items: [
+          { item: { x: 120.6, b: 251.6, w: 171 }, code: { x: 365.6, b: 251.6, w: 165.8 }, reason: [{ x: 151.4, b: 269.7, w: 380.8 }] },
+          { item: { x: 120.6, b: 287.8, w: 170.8 }, code: { x: 365.5, b: 287.8, w: 165.9 }, reason: [{ x: 151.4, b: 305.8, w: 380.8 }] }
+        ],
+        reporter: { pl: 260.6, pr: 388.4, b: 414.3 },
+        tech: { lines: [{ x: 56.7, b: 468.6, w: 476.7 }, { x: 56.7, b: 486.7, w: 476.7 }], name: { pl: 236.4, pr: 364.2, b: 522.8 } },
+        signers: {
+          supplyOfficer: { cx: 133.6,  b: 602.0, col: LEFT_COL },
+          supplyHead:    { cx: 387.3,  b: 602.0, col: RIGHT_COL },
+          budgetHead:    { cx: 132.3,  b: 681.0, col: LEFT_COL },
+          budgetDeputy:  { cx: 384.8,  b: 681.0, col: RIGHT_COL },
+          director:      { cx: 302.85, b: 760.1, col: FULL, titleB: 778.3 }
+        }
+      }
+    };
 
+    // ================================================================
+    //  วัดขนาดตัวอักษร
+    // ================================================================
+    const ctx2d = document.createElement('canvas').getContext('2d');
+    function textWidth(s, size) { ctx2d.font = `${size}pt ${FONT}`; return ctx2d.measureText(s).width * 0.75; } // px → pt
+
+    let baseRatio = 0.69;   // ระยะจากขอบบนถึงเส้นฐาน (หน่วย em) วัดจริงหลังโหลดฟอนต์
+    function measureBaseline() {
+      const probe = document.createElement('div');
+      probe.style.cssText = `position:absolute;left:-9999px;top:0;font:100px ${FONT};line-height:1;white-space:nowrap`;
+      probe.innerHTML = 'ก<span style="display:inline-block;width:1px;height:0;vertical-align:baseline"></span>';
+      document.body.appendChild(probe);
+      baseRatio = probe.lastElementChild.offsetTop / 100;
+      probe.remove();
+    }
+
+    const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('th', { granularity: 'word' }) : null;
+    const segmenterG = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('th', { granularity: 'grapheme' }) : null;
+    function words(s) {
+      if (segmenter) return [...segmenter.segment(s)].map(x => x.segment);
+      return s.split(/(\s+)/);
+    }
+
+    // ตัดข้อความลงหลายบรรทัด (boxes = ช่องเส้นประแต่ละบรรทัด) ย่อตัวอักษรถ้ายาวเกิน
+    function flow(text, boxes, pad) {
+      text = th(String(text || '').replace(/\s+/g, ' ').trim());
+      if (!text) return null;
+      pad = pad == null ? 3 : pad;
+      const pack = (ws, size, ell) => {
+        const lines = []; let i = 0;
+        boxes.forEach((box, k) => {
+          const last = k === boxes.length - 1;
+          let line = '';
+          while (i < ws.length && textWidth((line + ws[i]).trimEnd() + (ell && last ? '…' : ''), size) <= box.w - pad * 2) { line += ws[i]; i++; }
+          while (i < ws.length && !ws[i].trim()) i++;
+          lines.push(line.trim() + (ell && last && i < ws.length ? '…' : ''));
+        });
+        return { lines, done: i >= ws.length };
+      };
+      const ws = words(text);
+      for (let size = SIZE; size >= MIN_SIZE; size -= 0.5) {
+        const r = pack(ws, size, false);
+        if (r.done) return { size, lines: r.lines };
+      }
+      // ยาวเกินกว่าจะใส่ได้: ใช้ขนาดเล็กสุด ตัดทีละตัวอักษร แล้วจบด้วย …
+      const chars = segmenterG ? [...segmenterG.segment(text)].map(x => x.segment) : [...text];
+      return { size: MIN_SIZE, lines: pack(chars, MIN_SIZE, true).lines };
+    }
+
+    // opts.wipe = [x0, x1] ลบจุดไข่ปลาในช่วงนี้  opts.tall = ลบสูงทั้งบรรทัด (เช่น วงเล็บ)  opts.cls = class เพิ่ม
+    function span(text, x, b, size, opts) {
+      opts = opts || {};
+      let html = '';
+      if (opts.wipe) {
+        const [x0, x1] = opts.wipe;
+        const top = opts.tall ? b - 13 : b - 2.4, h = opts.tall ? 17.5 : 3.6;
+        html += `<i class="wipe" style="left:${x0.toFixed(2)}pt;top:${top.toFixed(2)}pt;width:${(x1 - x0).toFixed(2)}pt;height:${h}pt"></i>`;
+      }
+      html += `<span class="ov ${opts.cls || ''}" style="left:${x.toFixed(2)}pt;top:${(b - baseRatio * size).toFixed(2)}pt;font-size:${size}pt">${esc(text)}</span>`;
+      return html;
+    }
+    const GAP = 5;   // ระยะห่างระหว่างคำนำหน้าช่อง (เช่น "ด้วยข้าพเจ้า") กับข้อความที่กรอก
+
+    // ช่องบรรทัดเดียว (ชิดซ้าย เว้นวรรคจากคำนำหน้า แล้วลบจุดไข่ปลาใต้ข้อความ)
+    function field(text, box) {
+      const r = flow(text, [{ x: box.x, b: box.b, w: box.w - (box.line ? 0 : GAP) }], box.line ? 0 : 1);
+      if (!r || !r.lines[0]) return '';
+      if (box.line) return span(r.lines[0], box.x, box.b, r.size);
+      const x = box.x + GAP, w = textWidth(r.lines[0], r.size);
+      return span(r.lines[0], x, box.b, r.size, { wipe: [box.x + 0.2, x + w + 2] });
+    }
+    // ช่องหลายบรรทัด (บรรทัดแรกต่อจากคำนำหน้า บรรทัดต่อไปเริ่มต้นบรรทัดจุดไข่ปลา)
+    function multi(text, boxes, first) {
+      const gap0 = first === false ? 3 : GAP;
+      const bx = boxes.map((b, k) => ({ x: b.x, b: b.b, w: b.w - (k ? 3 : gap0) }));
+      const r = flow(text, bx, 1);
+      if (!r) return '';
+      return r.lines.map((ln, k) => {
+        if (!ln) return '';
+        const x = boxes[k].x + (k ? 3 : gap0), w = textWidth(ln, r.size);
+        return span(ln, x, boxes[k].b, r.size, { wipe: [boxes[k].x - (k ? 0.5 : -0.2), x + w + 2] });
+      }).join('');
+    }
+    // ชื่อในวงเล็บ (ผู้แจ้ง / ช่าง): แทนที่ "(......)" ทั้งช่องด้วย "(ชื่อ)" แบบเดียวกับชื่อผู้ลงนาม
+    function paren(text, box) {
+      text = th(String(text || '').trim());
+      if (!text) return '';
+      const label = `(${text})`;
+      const room = box.pr - box.pl + 60;
+      let size = SIZE;
+      while (size > MIN_SIZE && textWidth(label, size) > room) size -= 0.5;
+      const w = textWidth(label, size), cx = (box.pl + box.pr) / 2;
+      return span(label, cx - w / 2, box.b, size, { wipe: [box.pl - 1, box.pr + 1.5], tall: true });
+    }
+    // จุดไข่ปลา (ใช้ตัว "." ของฟอนต์เดียวกับแบบฟอร์ม)
+    function leader(x, b, w) {
+      const n = Math.max(0, Math.floor(w / textWidth('.', SIZE)));
+      return n ? span('.'.repeat(n), x, b, SIZE, { cls: 'lead' }) : '';
+    }
+
+    // ชื่อผู้ลงนาม: (ชื่อ) ตรงตำแหน่งเดิมในแบบฟอร์ม + ข้อความผู้ปฏิบัติหน้าที่แทน (ถ้ามี)
+    function signer(p, pos) {
+      if (!p || !pos) return '';
+      let html = '';
+      const label = th(`(${p.name || ''})`);
+      let size = SIZE;
+      while (size > MIN_SIZE && textWidth(label, size) > pos.col[1] - pos.col[0]) size -= 0.5;
+      const w = textWidth(label, size);
+      const x = Math.max(pos.col[0], Math.min(pos.cx - w / 2, pos.col[1] - w));
+      if (p.name) html += span(label, x, pos.b, size);
+
+      if (pos.titleB) {
+        // ผู้อำนวยการ: บรรทัดตำแหน่งใต้ชื่อ (ถ้ามีผู้รักษาราชการแทน ใช้ข้อความนั้นแทน)
+        const title = th(p.note || p.sign || CFG.directorTitle || '');
+        let ts = SIZE;
+        while (ts > MIN_SIZE && textWidth(title, ts) > pos.col[1] - pos.col[0]) ts -= 0.5;
+        html += span(title, pos.cx - textWidth(title, ts) / 2, pos.titleB, ts);
+      } else if (p.note) {
+        const note = th(p.note);
+        const nx = x + w + 4;
+        let ns = 14;
+        while (ns > 9 && textWidth(note, ns) > pos.col[1] - nx) ns -= 0.5;
+        html += span(note, nx, pos.b, ns);
+      }
+      return html;
+    }
+
+    // ================================================================
+    //  หน้าบันทึกข้อความ (แบบฟอร์มต้นฉบับ + ข้อมูลที่กรอก)
+    // ================================================================
+    function memoPage(t, settings) {
+      const isIT = t.type === 'IT';
+      const L = LAYOUT[isIT ? 'IT' : 'General'];
+      const d = App.thaiDateParts(t.createdAt);
+      const items = (Array.isArray(t.items) ? t.items : []).filter(Boolean);
+      let html = '';
+
+      html += field(`${d.day} ${d.month} ${d.year}`, L.date);
+      html += field(t.name, L.name);
+      html += field(t.department, L.dept);
+      L.items.forEach((slot, i) => {
+        const it = items[i];
+        if (!it) return;
+        html += field(it.item, slot.item);
+        if (slot.qty) html += field(it.qty, slot.qty);
+        html += field(it.code, slot.code);
+        html += multi(it.reason, slot.reason);
+      });
+      html += paren(t.name, L.reporter);
+
+      if (L.tech && t.status !== 'ยกเลิก') {
+        html += multi(t.repairReason, L.tech.lines, false);
+        html += paren(t.staffName, L.tech.name);
+      }
+
+      Object.keys(L.signers).forEach(slot => {
+        html += signer(App.resolveSigner(slot, settings, t), L.signers[slot]);
+      });
+
+      return `
+        <section class="page memo export">
+          <img class="bg" src="${L.bg}" alt="">
+          ${html}
+        </section>`;
+    }
+
+    // ================================================================
+    //  หน้าแนบ: ภาพประกอบ + ความคิดเห็นของเจ้าหน้าที่ (งานทั่วไป)
+    // ================================================================
+    function attachPage(t, forExport) {
+      const isIT = t.type === 'IT';
+      const tech = !isIT && t.status !== 'ยกเลิก' && (t.repairReason || t.staffName) ? (TECH.General || null) : null;
+      if (!t.imageId && !tech) return '';
+      if (forExport && !tech) return '';
+
+      const L = 56.7, R = 538.6, W = R - L, CX = (L + R) / 2;
+      const fit = (text, max, size) => { while (size > MIN_SIZE && textWidth(text, size) > max) size -= 0.5; return size; };
+      const center = (text, b, size, cls) => {
+        text = th(text);
+        const sz = fit(text, W, size);
+        return span(text, CX - textWidth(text, sz) / 2, b, sz, { cls });
+      };
+      let html = '';
+      html += center(t.imageId ? 'ภาพประกอบการแจ้งซ่อม' : 'เอกสารแนบการแจ้งซ่อม', 82, 20, 'bold');
+      html += center(`เลขที่แจ้งซ่อม ${App.padNo(t.no)}  ${t.name || ''}  ${t.department || ''}`, 104, SIZE);
+      html += center(`สถานที่ ${t.location || '-'}  วันที่แจ้ง ${App.formatDate(t.createdAt)}`, 122.1, SIZE);
+
+      const top = 134, h = tech ? 470 : 650;
+      if (t.imageId && !forExport) {
+        html += `<div class="photo" style="left:${L}pt;top:${top}pt;width:${W}pt;height:${h}pt"><img id="photo" src="${App.driveThumb(t.imageId, 1600)}" alt="ภาพประกอบ" referrerpolicy="no-referrer"></div>`;
+      } else {
+        const msg = t.imageId ? 'ภาพประกอบเก็บไว้ในโฟลเดอร์ "รูปภาพแจ้งซ่อม" ใน Google Drive' : 'ไม่มีภาพประกอบ';
+        html += `<div class="photo none" style="left:${L}pt;top:${top}pt;width:${W}pt;height:${h}pt">${esc(msg)}</div>`;
+      }
+
+      if (tech) {
+        // จัดแบบเดียวกับช่อง "ความคิดเห็นของเจ้าหน้าที่คอมพิวเตอร์" ในแบบฟอร์มงานไอที
+        const b0 = top + h + 32;
+        html += span(th(tech.heading), L, b0, SIZE);
+        const lines = [0, 1, 2].map(k => ({ x: L, b: b0 + 18.1 * (k + 1), w: W }));
+        lines.forEach(ln => { html += leader(ln.x, ln.b, ln.w); });
+        html += multi(t.repairReason, lines, false);
+
+        const bs = b0 + 18.1 * 4 + 6;
+        const wL = textWidth('ลงชื่อ', SIZE), wT = textWidth(tech.sign, SIZE), wD = 125;
+        const xs = R - (wL + wD + wT);
+        html += span('ลงชื่อ', xs, bs, SIZE) + leader(xs + wL, bs, wD) + span(th(tech.sign), xs + wL + wD, bs, SIZE);
+        const pl = xs + wL - 3, pr = xs + wL + wD + 3;
+        if (t.staffName) {
+          const label = th(`(${t.staffName})`);
+          html += span(label, (pl + pr) / 2 - textWidth(label, SIZE) / 2, bs + 18.1, SIZE);
+        } else {
+          html += span('(', pl, bs + 18.1, SIZE) + leader(pl + 3.1, bs + 18.1, pr - pl - 6.2) + span(')', pr - 3.1, bs + 18.1, SIZE);
+        }
+      }
+
+      return `
+        <section class="page attach ${forExport ? 'export' : ''}" id="attach-page">
+          ${html}
+        </section>`;
+    }
+
+    // ================================================================
+    //  การแจ้งผล / สร้าง PDF
+    // ================================================================
     function notice(html) {
       $('root').innerHTML = `<div class="notice">${html}</div>`;
       $('info').textContent = '';
@@ -133,142 +374,6 @@
       }
     }
 
-    function itemsHtml(t) {
-      const items = (Array.isArray(t.items) ? t.items : []).filter(Boolean);
-      const slots = Math.max(2, items.length);
-      let html = '';
-      for (let i = 0; i < slots; i++) {
-        const it = items[i] || {};
-        const n = `<span class="lbl">${th(i + 1)}</span>`;
-        if (t.type === 'IT') {
-          html += `
-            <div class="row indent">${n}${fill(it.item)}<span class="lbl">หมายเลขครุภัณฑ์</span>${fill(it.code, 'w-code')}</div>
-            <div class="row indent"><span class="lbl">เนื่องจาก</span>${fill(it.reason)}</div>`;
-        } else {
-          html += `
-            <div class="row indent">${n}${fill(it.item)}<span class="lbl">จำนวน</span>${fill(it.qty, 'w-qty')}</div>`;
-          // อาการสั้น: อยู่บรรทัดเดียวกับหมายเลขครุภัณฑ์ตามแบบฟอร์ม / อาการยาว: แยกบรรทัดให้เต็มความกว้าง
-          html += visibleLen(it.reason) <= 34
-            ? `<div class="row indent"><span class="lbl">หมายเลขครุภัณฑ์</span>${fill(it.code, 'w-code')}<span class="lbl">เนื่องจาก</span>${fill(it.reason)}</div>`
-            : `<div class="row indent"><span class="lbl">หมายเลขครุภัณฑ์</span>${fill(it.code)}</div>
-               <div class="row indent"><span class="lbl">เนื่องจาก</span>${fill(it.reason)}</div>`;
-        }
-      }
-      return html;
-    }
-
-    // ช่องความเห็น + ลงชื่อ ของผู้บริหาร/เจ้าหน้าที่ (p = ผลจาก App.resolveSigner)
-    function block(p) {
-      p = p || {};
-      return `
-        <div class="blk">
-          <div>${esc(p.heading || '')}</div>
-          <div class="row">${fill('')}</div>
-          <div class="row signrow"><span class="lbl">ลงชื่อ</span>${fill('')}<span class="lbl">${esc(p.sign || '')}</span></div>
-          <div class="name">(${p.name ? esc(p.name) : fill('', 'w-name')})</div>
-          ${p.note ? `<div class="name">${esc(p.note)}</div>` : ''}
-        </div>`;
-    }
-
-    function memoPage(t, settings) {
-      const S = slot => App.resolveSigner(slot, settings, t);
-      const d = App.thaiDateParts(t.createdAt);
-      const isIT = t.type === 'IT';
-      const tech = TECH[isIT ? 'IT' : 'General'];
-      const showStaffInfo = t.status !== 'ยกเลิก';
-
-      const techHtml = tech ? `
-        <div class="approvals">
-          <div>${esc(tech.heading)}</div>
-          <div class="row">${fill(showStaffInfo ? t.repairReason : '', 'lines2')}</div>
-          <div class="sig">
-            <div class="row signrow"><span class="lbl">ลงชื่อ</span>${fill('')}<span class="lbl">${esc(tech.sign)}</span></div>
-            <div class="center">(${showStaffInfo && t.staffName ? esc(t.staffName) : fill('', 'w-name')})</div>
-          </div>
-        </div>` : '';
-
-      const firstPair = isIT ? '' : `<div class="pair">${block(S('generalHead'))}${block(S('generalDeputy'))}</div>`;
-      const dir = S('director');
-
-      return `
-        <section class="page memo">
-          <div class="head">
-            <div class="ref">เลขที่แจ้งซ่อม ${th(App.padNo(t.no))}</div>
-            <img class="garuda" src="img/garuda.png" alt="">
-            <div class="title">บันทึกข้อความ</div>
-          </div>
-          <div class="hrow"><b>ส่วนราชการ</b>${fill(CFG.schoolName || '')}</div>
-          <div class="hrow"><b>ที่</b>${fill('')}<b style="margin-left:3mm">วันที่</b>${fill(`${th(d.day)} ${d.month} ${th(d.year)}`)}</div>
-          <div class="hrow"><b>เรื่อง</b>${fill('แจ้งซ่อมบำรุงวัสดุ ครุภัณฑ์')}</div>
-          <div class="gap"></div>
-
-          <div>เรียน&nbsp; ${esc(CFG.directorTitle || '')}</div>
-          <div class="row indent"><span class="lbl">ด้วยข้าพเจ้า</span>${fill(t.name)}<span class="lbl">กลุ่มงาน/กลุ่มชั้น</span>${fill(t.department)}</div>
-          <div>มีความจำเป็นที่จะขอแจ้งซ่อมบำรุงวัสดุ ครุภัณฑ์ สถานศึกษาที่มีสภาพชำรุด ทรุดโทรม ตามรายการดังนี้</div>
-          ${itemsHtml(t)}
-          <div class="row indent"><span class="lbl">สถานที่</span>${fill(t.location)}</div>
-          <div class="indent bold">(แนบภาพประกอบทุกครั้ง)</div>
-          <div class="indent">จึงเรียนมาเพื่อโปรดทราบและพิจารณาอนุมัติ</div>
-          <div class="gap"></div>
-          <div class="sig">
-            <div class="row signrow"><span class="lbl">ลงชื่อ</span>${fill('')}<span class="lbl">ผู้แจ้งซ่อม</span></div>
-            <div class="center">(${t.name ? esc(t.name) : fill('', 'w-name')})</div>
-          </div>
-
-          ${techHtml}
-          <div class="approvals">
-            ${firstPair}
-            <div class="pair">${block(S('supplyOfficer'))}${block(S('supplyHead'))}</div>
-            <div class="pair">${block(S('budgetHead'))}${block(S('budgetDeputy'))}</div>
-            <div class="director">
-              <div>${esc(dir.heading || 'ความคิดเห็นของผู้อำนวยการ')}</div>
-              <div class="row">${fill('')}</div>
-              <div class="sigline row signrow" style="margin-top:calc(var(--lh)*0.9)"><span class="lbl">ลงชื่อ</span>${fill('')}</div>
-              <div class="center">(${dir.name ? esc(dir.name) : fill('', 'w-name')})</div>
-              <div class="center">${esc(dir.note || dir.sign || CFG.directorTitle || '')}</div>
-            </div>
-          </div>
-        </section>`;
-    }
-
-    function photoPage(t) {
-      if (!t.imageId) return '';
-      return `
-        <section class="page photo" id="photo-page">
-          <div class="ref">เลขที่แจ้งซ่อม ${th(App.padNo(t.no))}</div>
-          <h2>ภาพประกอบการแจ้งซ่อม</h2>
-          <div class="meta">${esc(t.name)} · ${esc(t.department)} · ${esc(t.location)} · ${App.formatDate(t.createdAt)}</div>
-          <div class="imgwrap"><img id="photo" src="${App.driveThumb(t.imageId, 1600)}" alt="ภาพประกอบ" referrerpolicy="no-referrer"></div>
-        </section>`;
-    }
-
-    // วาดเส้นประใต้ทุกบรรทัดของช่องกรอก (คำนวณจากความสูงจริงหลังจัดหน้า)
-    function drawLines() {
-      document.querySelectorAll('.fill').forEach(el => {
-        el.querySelectorAll('.ln').forEach(n => n.remove());
-        const lh = parseFloat(getComputedStyle(el).lineHeight) || 20;
-        const n = Math.max(1, Math.round(el.clientHeight / lh));
-        for (let k = 1; k <= n; k++) {
-          const ln = document.createElement('i');
-          ln.className = 'ln';
-          ln.style.top = (k * lh - 2) + 'px';
-          el.appendChild(ln);
-        }
-      });
-    }
-    window.addEventListener('beforeprint', drawLines);
-
-    function waitForPhoto() {
-      const img = $('photo');
-      if (!img || img.complete) return Promise.resolve();
-      return new Promise(resolve => {
-        img.addEventListener('load', resolve, { once: true });
-        img.addEventListener('error', resolve, { once: true });
-        setTimeout(resolve, 8000);
-      });
-    }
-
-    // ---------- สร้างไฟล์ PDF (ใช้ตอนหน้าเจ้าหน้าที่สั่งบันทึกลง Drive) ----------
     function loadScript(src) {
       return new Promise((resolve, reject) => {
         if (document.querySelector(`script[src="${src}"]`)) return resolve();
@@ -280,63 +385,26 @@
       });
     }
 
-    // หาเส้นแบ่งหน้าที่เป็นแถวว่างสีขาว เพื่อไม่ให้ตัดกลางตัวอักษร
-    function whiteRowAbove(ctx, width, y, minY) {
-      for (let yy = Math.floor(y); yy > minY; yy--) {
-        const row = ctx.getImageData(0, yy, width, 1).data;
-        let white = true;
-        for (let i = 0; i < row.length; i += 16) {
-          if (row[i] < 235 || row[i + 1] < 235 || row[i + 2] < 235) { white = false; break; }
-        }
-        if (white) return yy;
-      }
-      return Math.floor(y);
+    function waitImages(selector) {
+      return Promise.all([...document.querySelectorAll(selector)].map(img => img.complete ? null : new Promise(res => {
+        img.addEventListener('load', res, { once: true });
+        img.addEventListener('error', res, { once: true });
+        setTimeout(res, 8000);
+      })));
     }
 
+    // แปลงแต่ละหน้า (.export) เป็นภาพ แล้วรวมเป็น PDF ขนาด A4
     async function exportPdf() {
-      await document.fonts.ready;
-      drawLines();
-      await Promise.all([loadScript(H2C_URL), loadScript(JSPDF_URL)]);
-      const memo = document.querySelector('.memo');
-      memo.style.boxShadow = 'none';
-      memo.style.margin = '0';
-      // ตำแหน่งที่ตัดหน้าได้ = ขอบบนของแต่ละบรรทัด/กลุ่มลงนาม (ไม่ตัดกลางกลุ่ม)
-      const mTop = memo.getBoundingClientRect().top;
-      const blocks = [...memo.querySelectorAll(':scope > *, .approvals > *')].map(el => el.getBoundingClientRect().top - mTop);
-      const canvas = await window.html2canvas(memo, { scale: 2, backgroundColor: '#ffffff', logging: false });
-      const k = canvas.width / memo.getBoundingClientRect().width;
-      const cuts = blocks.map(v => v * k).filter(v => v > 0).sort((a, b) => a - b);
-      const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-      const pxPerMm = canvas.width / 210;
-      const pageH = 297 * pxPerMm;
-      const jpeg = c => c.toDataURL('image/jpeg', 0.88);
-
-      if (canvas.height <= pageH * 1.06) {
-        // หน้าเดียว (ถ้ายาวเกินเล็กน้อยจะย่อให้พอดี)
-        const scale = Math.min(1, pageH / canvas.height);
-        const w = 210 * scale;
-        pdf.addImage(jpeg(canvas), 'JPEG', (210 - w) / 2, 0, w, canvas.height / pxPerMm * scale);
-      } else {
-        // หลายหน้า: หน้าแรกใช้ขอบบนของต้นฉบับ หน้าถัดไปเว้นขอบบน 20 มม. ขอบล่าง 10 มม.
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const top = 20 * pxPerMm, bottom = 10 * pxPerMm;
-        let y = 0, first = true;
-        while (y < canvas.height - 2) {
-          const room = first ? pageH - bottom : pageH - top - bottom;
-          let end = Math.min(canvas.height, y + room);
-          if (end < canvas.height) {
-            const best = cuts.filter(c => c > y + room * 0.5 && c <= end).pop();
-            end = best ? Math.floor(best) : whiteRowAbove(ctx, canvas.width, end, y + room * 0.7);
-          }
-          const part = document.createElement('canvas');
-          part.width = canvas.width;
-          part.height = end - y;
-          part.getContext('2d').drawImage(canvas, 0, y, canvas.width, end - y, 0, 0, canvas.width, end - y);
-          if (!first) pdf.addPage();
-          pdf.addImage(jpeg(part), 'JPEG', 0, first ? 0 : 20, 210, (end - y) / pxPerMm);
-          y = end;
-          first = false;
-        }
+      await Promise.all([loadScript(H2C_URL), loadScript(JSPDF_URL), waitImages('img.bg')]);
+      const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait', compress: true });
+      const pages = [...document.querySelectorAll('.page.export')];
+      for (let i = 0; i < pages.length; i++) {
+        const el = pages[i];
+        el.style.boxShadow = 'none';
+        el.style.margin = '0';
+        const canvas = await window.html2canvas(el, { scale: 2.5, backgroundColor: '#ffffff', logging: false });
+        if (i > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 595.28, 841.89);
       }
       return pdf.output('datauristring').split(',')[1];
     }
@@ -362,24 +430,13 @@
         return;
       }
 
-      document.title = `บันทึกข้อความแจ้งซ่อม-${App.padNo(t.no)}`;
-      $('root').innerHTML = memoPage(t, settings) + (EXPORT ? '' : photoPage(t));
-      drawLines();
-      document.fonts.ready.then(() => {
-        drawLines();
-        const memo = document.querySelector('.memo');
-        if (memo.offsetHeight / memo.offsetWidth > 297 / 210 + 0.01) {
-          $('info').textContent += ' · เนื้อหายาว จะพิมพ์ต่อเป็น 2 หน้า';
-        }
-      });
-      $('info').textContent = `เลขที่ ${App.padNo(t.no)} · ${(App.TYPES[t.type] || App.TYPES.General).label} · ${App.statusOf(t)}`;
+      // รอฟอนต์ก่อนวัดตำแหน่งตัวอักษร
+      try { await Promise.all([document.fonts.load(`${SIZE}pt ${FONT}`, 'กขค๑'), document.fonts.load(`700 ${SIZE}pt ${FONT}`, 'กขค')]); } catch (e) { /* ใช้ฟอนต์สำรอง */ }
+      measureBaseline();
 
-      if (t.imageId) {
-        $('photo-opt').hidden = false;
-        $('photo-toggle').addEventListener('change', e => {
-          $('photo-page').classList.toggle('no-print', !e.target.checked);
-        });
-      }
+      document.title = `บันทึกข้อความแจ้งซ่อม-${App.padNo(t.no)}`;
+      $('root').innerHTML = memoPage(t, settings) + attachPage(t, EXPORT);
+      $('info').textContent = `เลขที่ ${App.padNo(t.no)} · ${(App.TYPES[t.type] || App.TYPES.General).label} · ${App.statusOf(t)}`;
 
       if (EXPORT) {
         exportPdf().then(data => report({ ok: true, data, no: t.no }))
@@ -387,12 +444,21 @@
         return;
       }
 
+      const attach = $('attach-page');
+      if (attach) {
+        $('attach-opt').hidden = false;
+        $('attach-label').textContent = t.imageId && t.type !== 'IT' && (t.repairReason || t.staffName)
+          ? 'พิมพ์หน้าแนบ (รูปภาพ + ความเห็นเจ้าหน้าที่)'
+          : t.imageId ? 'พิมพ์หน้าแนบรูปภาพ' : 'พิมพ์หน้าแนบความเห็นเจ้าหน้าที่';
+        $('attach-toggle').addEventListener('change', e => attach.classList.toggle('no-print', !e.target.checked));
+      }
+
       const btn = $('print-btn');
       btn.disabled = false;
       btn.addEventListener('click', async () => {
         btn.disabled = true;
         await document.fonts.ready;
-        if ($('photo-toggle').checked) await waitForPhoto();
+        await waitImages('img');
         btn.disabled = false;
         window.print();
       });
