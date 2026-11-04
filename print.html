@@ -198,15 +198,15 @@
       html += `<span class="ov ${opts.cls || ''}" style="left:${x.toFixed(2)}pt;top:${(b - baseRatio * size).toFixed(2)}pt;font-size:${size}pt">${esc(text)}</span>`;
       return html;
     }
-    const GAP = 5;   // ระยะห่างระหว่างคำนำหน้าช่อง (เช่น "ด้วยข้าพเจ้า") กับข้อความที่กรอก
+    const GAP = 4;    // ระยะห่างระหว่างคำนำหน้าช่อง (เช่น "ด้วยข้าพเจ้า") กับข้อความที่กรอก
+    const LIFT = 3;   // ข้อความลอยเหนือจุดไข่ปลา (pt) จุดยังเห็นต่อเนื่องใต้ข้อความ
 
-    // ช่องบรรทัดเดียว (ชิดซ้าย เว้นวรรคจากคำนำหน้า แล้วลบจุดไข่ปลาใต้ข้อความ)
+    // ช่องบรรทัดเดียว (ชิดซ้าย เว้นจากคำนำหน้าเล็กน้อย ลอยเหนือจุดไข่ปลา)
     function field(text, box) {
       const r = flow(text, [{ x: box.x, b: box.b, w: box.w - (box.line ? 0 : GAP) }], box.line ? 0 : 1);
       if (!r || !r.lines[0]) return '';
       if (box.line) return span(r.lines[0], box.x, box.b, r.size);
-      const x = box.x + GAP, w = textWidth(r.lines[0], r.size);
-      return span(r.lines[0], x, box.b, r.size, { wipe: [box.x + 0.2, x + w + 2] });
+      return span(r.lines[0], box.x + GAP, box.b - LIFT, r.size);
     }
     // ช่องหลายบรรทัด (บรรทัดแรกต่อจากคำนำหน้า บรรทัดต่อไปเริ่มต้นบรรทัดจุดไข่ปลา)
     function multi(text, boxes, first) {
@@ -214,22 +214,17 @@
       const bx = boxes.map((b, k) => ({ x: b.x, b: b.b, w: b.w - (k ? 3 : gap0) }));
       const r = flow(text, bx, 1);
       if (!r) return '';
-      return r.lines.map((ln, k) => {
-        if (!ln) return '';
-        const x = boxes[k].x + (k ? 3 : gap0), w = textWidth(ln, r.size);
-        return span(ln, x, boxes[k].b, r.size, { wipe: [boxes[k].x - (k ? 0.5 : -0.2), x + w + 2] });
-      }).join('');
+      return r.lines.map((ln, k) => ln ? span(ln, boxes[k].x + (k ? 3 : gap0), boxes[k].b - LIFT, r.size) : '').join('');
     }
-    // ชื่อในวงเล็บ (ผู้แจ้ง / ช่าง): แทนที่ "(......)" ทั้งช่องด้วย "(ชื่อ)" แบบเดียวกับชื่อผู้ลงนาม
+    // ชื่อในวงเล็บ (ผู้แจ้ง / ช่าง): คง "(......)" ไว้ แล้ววางชื่อลอยอยู่กลางวงเล็บ
     function paren(text, box) {
       text = th(String(text || '').trim());
       if (!text) return '';
-      const label = `(${text})`;
-      const room = box.pr - box.pl + 60;
+      const room = box.pr - box.pl - 8;
       let size = SIZE;
-      while (size > MIN_SIZE && textWidth(label, size) > room) size -= 0.5;
-      const w = textWidth(label, size), cx = (box.pl + box.pr) / 2;
-      return span(label, cx - w / 2, box.b, size, { wipe: [box.pl - 1, box.pr + 1.5], tall: true });
+      while (size > MIN_SIZE && textWidth(text, size) > room) size -= 0.5;
+      const w = textWidth(text, size), cx = (box.pl + box.pr) / 2;
+      return span(text, cx - w / 2, box.b - LIFT, size);
     }
     // จุดไข่ปลา (ใช้ตัว "." ของฟอนต์เดียวกับแบบฟอร์ม)
     function leader(x, b, w) {
@@ -345,12 +340,8 @@
         const xs = R - (wL + wD + wT);
         html += span('ลงชื่อ', xs, bs, SIZE) + leader(xs + wL, bs, wD) + span(th(tech.sign), xs + wL + wD, bs, SIZE);
         const pl = xs + wL - 3, pr = xs + wL + wD + 3;
-        if (t.staffName) {
-          const label = th(`(${t.staffName})`);
-          html += span(label, (pl + pr) / 2 - textWidth(label, SIZE) / 2, bs + 18.1, SIZE);
-        } else {
-          html += span('(', pl, bs + 18.1, SIZE) + leader(pl + 3.1, bs + 18.1, pr - pl - 6.2) + span(')', pr - 3.1, bs + 18.1, SIZE);
-        }
+        html += span('(', pl, bs + 18.1, SIZE) + leader(pl + 3.1, bs + 18.1, pr - pl - 6.2) + span(')', pr - 3.1, bs + 18.1, SIZE);
+        html += paren(t.staffName, { pl, pr, b: bs + 18.1 });
       }
 
       return `
