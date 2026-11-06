@@ -168,7 +168,7 @@
         </div>
 
         <div>
-          <label for="e-reason" class="block text-sm font-semibold mb-1">ความคิดเห็นของเจ้าหน้าที่ / ผลการตรวจสอบ <span class="font-normal text-gray-400">(พิมพ์ลงในใบแจ้งซ่อม · ต้องกรอกก่อนจึงจะพิมพ์ได้)</span></label>
+          <label for="e-reason" class="block text-sm font-semibold mb-1">ความคิดเห็นของเจ้าหน้าที่ / ผลการตรวจสอบ <span id="e-reason-hint" class="font-normal text-gray-400"></span></label>
           <textarea id="e-reason" class="field" rows="3" maxlength="2000" placeholder="เช่น เปลี่ยนสายไฟใหม่ ใช้งานได้ปกติ"></textarea>
         </div>
 
@@ -505,7 +505,13 @@
         names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
       $('e-staff').value = current || '';
     }
-    $('e-type').addEventListener('change', () => { fillStaff($('e-type').value, $('e-staff').value); toggleGeneralRows(); });
+    $('e-type').addEventListener('change', () => { fillStaff($('e-type').value, $('e-staff').value); toggleGeneralRows(); reasonHint(); });
+    // งานไอที: ความเห็นพิมพ์ลงในแบบฟอร์ม (บังคับกรอก) / งานทั่วไป: แบบฟอร์มไม่มีช่องนี้ (เก็บไว้ในระบบเท่านั้น)
+    function reasonHint() {
+      $('e-reason-hint').textContent = $('e-type').value === 'IT'
+        ? '(พิมพ์ลงในใบแจ้งซ่อม · ต้องกรอกก่อนเปลี่ยนเป็น "ดำเนินการ")'
+        : '(ไม่บังคับ · เก็บไว้ในระบบ ไม่พิมพ์ลงใบแจ้งซ่อม)';
+    }
 
     async function openModal(id) {
       const t = byId.get(id);
@@ -539,6 +545,7 @@
       $('m-updated').textContent = '';
       $('m-print').href = 'print.html?id=' + encodeURIComponent(id);
       refreshPrintBtn(id);
+      reasonHint();
       renderTicketSigners(t);
       refreshPdfRow(id);
       modal.classList.add('active');
@@ -583,7 +590,7 @@
       const remark = $('e-remark').value.trim();
 
       if ((status === 'ดำเนินการ' || status === 'เสร็จสิ้น') && !staffName) { App.toast('กรุณาเลือกผู้รับผิดชอบ', 'warn'); return; }
-      if ((status === 'ดำเนินการ' || status === 'เสร็จสิ้น') && !repairReason) {
+      if ((status === 'ดำเนินการ' || status === 'เสร็จสิ้น') && type === 'IT' && !repairReason) {
         App.toast(`กรุณาลงความเห็นของเจ้าหน้าที่ก่อนเปลี่ยนเป็น "${status}" (ผู้แจ้งจะพิมพ์ใบแจ้งซ่อมได้หลังจากนี้)`, 'warn');
         $('e-reason').focus();
         return;
@@ -809,7 +816,7 @@
       $('m-pdf-state').innerHTML = busy
         ? '<span class="spinner text-blue-600" style="width:14px;height:14px;border-width:2px"></span> กำลังบันทึก...'
         : t.pdfId ? `<a href="${App.driveView(t.pdfId)}" target="_blank" rel="noopener" class="text-blue-700 underline">เปิดไฟล์ ↗</a>`
-        : block ? 'ยังบันทึกไม่ได้ (ต้องเป็น "ดำเนินการ" และลงความเห็นก่อน)' : 'ยังไม่ได้บันทึก';
+        : block ? (App.needsComment(t) ? 'ยังบันทึกไม่ได้ (ต้องเป็น "ดำเนินการ" และลงความเห็นก่อน)' : 'ยังบันทึกไม่ได้ (ต้องเป็น "ดำเนินการ" ก่อน)') : 'ยังไม่ได้บันทึก';
       const btn = $('m-pdf-save');
       btn.disabled = busy || !!block;
       btn.classList.toggle('hidden', busy || !!block);
@@ -826,7 +833,7 @@
       a.classList.toggle('opacity-50', !!block);
       a.setAttribute('aria-disabled', block ? 'true' : 'false');
       a.title = block ? block + ' (บันทึกสถานะก่อน)' : '';
-      a.textContent = block ? '🔒 พิมพ์ได้หลังลงความเห็น' : '🖨️ พิมพ์ใบแจ้งซ่อม';
+      a.textContent = block ? '🔒 พิมพ์ได้หลังตรวจสอบ' : '🖨️ พิมพ์ใบแจ้งซ่อม';
     }
 
     // สร้าง PDF จากหน้า print.html ใน iframe ที่ซ่อนไว้

@@ -187,13 +187,15 @@
   }
 
   // ---------- สิทธิ์การพิมพ์ใบแจ้งซ่อม ----------
-  // พิมพ์ได้เมื่อเจ้าหน้าที่รับงาน (ดำเนินการ / เสร็จสิ้น) และลงความเห็นแล้วเท่านั้น
+  // พิมพ์ได้เมื่อเจ้าหน้าที่รับงานแล้ว (ดำเนินการ / เสร็จสิ้น)
+  // งานไอทีต้องลงความเห็นก่อนด้วย เพราะแบบฟอร์มมีช่องความคิดเห็นของเจ้าหน้าที่ (งานทั่วไปไม่มี)
   const PRINTABLE = ['ดำเนินการ', 'เสร็จสิ้น'];
+  function needsComment(t) { return !!t && t.type === 'IT'; }
   function printBlock(t) {
     const st = statusOf(t);
     if (st === 'ยกเลิก') return 'ใบแจ้งซ่อมนี้ถูกยกเลิกแล้ว';
-    if (PRINTABLE.indexOf(st) < 0) return 'รอเจ้าหน้าที่ตรวจสอบ พิมพ์ได้เมื่อเจ้าหน้าที่รับงานและลงความเห็นแล้ว';
-    if (!String((t && t.repairReason) || '').trim()) return 'รอเจ้าหน้าที่ลงความเห็น พิมพ์ได้เมื่อเจ้าหน้าที่ลงความเห็นแล้ว';
+    if (PRINTABLE.indexOf(st) < 0) return 'รอเจ้าหน้าที่ตรวจสอบ พิมพ์ได้เมื่อเจ้าหน้าที่รับงานแล้ว (สถานะ "ดำเนินการ")';
+    if (needsComment(t) && !String((t && t.repairReason) || '').trim()) return 'รอเจ้าหน้าที่ลงความเห็น พิมพ์ได้เมื่อเจ้าหน้าที่ลงความเห็นแล้ว';
     return '';
   }
 
@@ -202,6 +204,6 @@
     esc, statusOf, statusBadge, typeBadge, padNo, toDate, formatDate, thaiDateParts,
     driveThumb, driveView, compressImage, uploadImage, configReady, toast, firestoreErrorText,
     csvCell, storageGet, storageSet,
-    SIGNER_SLOTS, ymd, defaultSubNote, subActiveOn, resolveSigner, printBlock
+    SIGNER_SLOTS, ymd, defaultSubNote, subActiveOn, resolveSigner, printBlock, needsComment
   };
 })();

@@ -179,7 +179,7 @@
         <p class="text-gray-500 mt-1">เลขที่ใบแจ้งซ่อม</p>
         <p id="success-no" class="text-4xl font-bold text-blue-700 tracking-wider my-2"></p>
         <p class="text-sm text-gray-500">ติดตามสถานะได้ที่หน้ารายการ ระบบจะอัปเดตให้อัตโนมัติ</p>
-        <p class="text-sm bg-amber-50 text-amber-800 rounded-xl px-4 py-3 mt-4 mb-6">🖨️ พิมพ์ใบแจ้งซ่อมได้เมื่อเจ้าหน้าที่ตรวจสอบและลงความเห็นแล้ว<br><span class="text-xs">จะมีปุ่ม "พิมพ์" ขึ้นในรายการของคุณ</span></p>
+        <p class="text-sm bg-amber-50 text-amber-800 rounded-xl px-4 py-3 mt-4 mb-6">🖨️ พิมพ์ใบแจ้งซ่อมได้เมื่อเจ้าหน้าที่ตรวจสอบแล้ว<br><span class="text-xs">จะมีปุ่ม "พิมพ์" ขึ้นในรายการของคุณ</span></p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center">
           <button type="button" data-close class="px-5 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 transition">ปิด</button>
         </div>
@@ -314,7 +314,7 @@
       $('card-list').innerHTML = list.map(cardHtml).join('');
     }
 
-    // ปุ่มพิมพ์: แสดงเมื่อเจ้าหน้าที่รับงานและลงความเห็นแล้ว
+    // ปุ่มพิมพ์: แสดงเมื่อเจ้าหน้าที่รับงานแล้ว (งานไอทีต้องลงความเห็นด้วย)
     function printHtml(t, st) {
       if (st === 'ยกเลิก') return '';
       const block = App.printBlock(t);

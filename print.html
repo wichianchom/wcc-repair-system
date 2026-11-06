@@ -60,7 +60,7 @@
   <div class="toolbar">
     <a class="back" href="index.html">← หน้ารายการ</a>
     <button class="print" id="print-btn" disabled>🖨️ พิมพ์ / บันทึกเป็น PDF</button>
-    <label id="attach-opt" hidden><input type="checkbox" id="attach-toggle" checked> <span id="attach-label">พิมพ์หน้าแนบ</span></label>
+    <label id="attach-opt" hidden><input type="checkbox" id="attach-toggle" checked> <span id="attach-label">พิมพ์แผ่นที่ 2 (ภาพประกอบ)</span></label>
     <span class="info" id="info">กำลังโหลด...</span>
   </div>
   <div id="root"></div>
@@ -77,7 +77,6 @@
     }
     const { CFG, esc } = window.App;
     const $ = id => document.getElementById(id);
-    const TECH = CFG.techSection || {};
     const params = new URLSearchParams(location.search);
     const EXPORT = params.get('export') === '1';   // โหมดสร้าง PDF ให้หน้าเจ้าหน้าที่ (เปิดใน iframe)
     const H2C_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -299,54 +298,14 @@
     }
 
     // ================================================================
-    //  หน้าแนบ: ภาพประกอบ + ความคิดเห็นของเจ้าหน้าที่ (งานทั่วไป)
+    //  แผ่นที่ 2: ภาพประกอบอย่างเดียว (ทั้งงานทั่วไปและงานไอที)
     // ================================================================
-    function attachPage(t, forExport) {
-      const isIT = t.type === 'IT';
-      const tech = !isIT && t.status !== 'ยกเลิก' && (t.repairReason || t.staffName) ? (TECH.General || null) : null;
-      if (!t.imageId && !tech) return '';
-      if (forExport && !tech) return '';
-
-      const L = 56.7, R = 538.6, W = R - L, CX = (L + R) / 2;
-      const fit = (text, max, size) => { while (size > MIN_SIZE && textWidth(text, size) > max) size -= 0.5; return size; };
-      const center = (text, b, size, cls) => {
-        text = th(text);
-        const sz = fit(text, W, size);
-        return span(text, CX - textWidth(text, sz) / 2, b, sz, { cls });
-      };
-      let html = '';
-      html += center(t.imageId ? 'ภาพประกอบการแจ้งซ่อม' : 'เอกสารแนบการแจ้งซ่อม', 82, 20, 'bold');
-      html += center(`เลขที่แจ้งซ่อม ${App.padNo(t.no)}  ${t.name || ''}  ${t.department || ''}`, 104, SIZE);
-      html += center(`สถานที่ ${t.location || '-'}  วันที่แจ้ง ${App.formatDate(t.createdAt)}`, 122.1, SIZE);
-
-      const top = 134, h = tech ? 470 : 650;
-      if (t.imageId && !forExport) {
-        html += `<div class="photo" style="left:${L}pt;top:${top}pt;width:${W}pt;height:${h}pt"><img id="photo" src="${App.driveThumb(t.imageId, 1600)}" alt="ภาพประกอบ" referrerpolicy="no-referrer"></div>`;
-      } else {
-        const msg = t.imageId ? 'ภาพประกอบเก็บไว้ในโฟลเดอร์ "รูปภาพแจ้งซ่อม" ใน Google Drive' : 'ไม่มีภาพประกอบ';
-        html += `<div class="photo none" style="left:${L}pt;top:${top}pt;width:${W}pt;height:${h}pt">${esc(msg)}</div>`;
-      }
-
-      if (tech) {
-        // จัดแบบเดียวกับช่อง "ความคิดเห็นของเจ้าหน้าที่คอมพิวเตอร์" ในแบบฟอร์มงานไอที
-        const b0 = top + h + 32;
-        html += span(th(tech.heading), L, b0, SIZE);
-        const lines = [0, 1, 2].map(k => ({ x: L, b: b0 + 18.1 * (k + 1), w: W }));
-        lines.forEach(ln => { html += leader(ln.x, ln.b, ln.w); });
-        html += multi(t.repairReason, lines, false);
-
-        const bs = b0 + 18.1 * 4 + 6;
-        const wL = textWidth('ลงชื่อ', SIZE), wT = textWidth(tech.sign, SIZE), wD = 125;
-        const xs = R - (wL + wD + wT);
-        html += span('ลงชื่อ', xs, bs, SIZE) + leader(xs + wL, bs, wD) + span(th(tech.sign), xs + wL + wD, bs, SIZE);
-        const pl = xs + wL - 3, pr = xs + wL + wD + 3;
-        html += span('(', pl, bs + 18.1, SIZE) + leader(pl + 3.1, bs + 18.1, pr - pl - 6.2) + span(')', pr - 3.1, bs + 18.1, SIZE);
-        html += paren(t.staffName, { pl, pr, b: bs + 18.1 });
-      }
-
+    function attachPage(t) {
+      if (!t.imageId) return '';
+      const L = 56.7, T = 56.7, W = 595.32 - L * 2, H = 841.92 - T * 2;
       return `
-        <section class="page attach ${forExport ? 'export' : ''}" id="attach-page">
-          ${html}
+        <section class="page attach" id="attach-page">
+          <div class="photo" style="left:${L}pt;top:${T}pt;width:${W}pt;height:${H}pt;border:0"><img id="photo" src="${App.driveThumb(t.imageId, 1600)}" alt="ภาพประกอบ" referrerpolicy="no-referrer"></div>
         </section>`;
     }
 
@@ -433,7 +392,8 @@
       measureBaseline();
 
       document.title = `บันทึกข้อความแจ้งซ่อม-${App.padNo(t.no)}`;
-      $('root').innerHTML = memoPage(t, settings) + attachPage(t, EXPORT);
+      // ไฟล์ PDF ที่บันทึกลง Drive มีเฉพาะบันทึกข้อความ (รูปเก็บแยกในโฟลเดอร์ "รูปภาพแจ้งซ่อม" แล้ว)
+      $('root').innerHTML = memoPage(t, settings) + (EXPORT ? '' : attachPage(t));
       $('info').textContent = `เลขที่ ${App.padNo(t.no)} · ${(App.TYPES[t.type] || App.TYPES.General).label} · ${App.statusOf(t)}`;
 
       if (EXPORT) {
@@ -445,9 +405,7 @@
       const attach = $('attach-page');
       if (attach) {
         $('attach-opt').hidden = false;
-        $('attach-label').textContent = t.imageId && t.type !== 'IT' && (t.repairReason || t.staffName)
-          ? 'พิมพ์หน้าแนบ (รูปภาพ + ความเห็นเจ้าหน้าที่)'
-          : t.imageId ? 'พิมพ์หน้าแนบรูปภาพ' : 'พิมพ์หน้าแนบความเห็นเจ้าหน้าที่';
+        $('attach-label').textContent = 'พิมพ์แผ่นที่ 2 (ภาพประกอบ)';
         $('attach-toggle').addEventListener('change', e => attach.classList.toggle('no-print', !e.target.checked));
       }
 
