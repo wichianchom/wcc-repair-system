@@ -302,10 +302,22 @@
     // ================================================================
     function attachPage(t) {
       if (!t.imageId) return '';
-      const L = 56.7, T = 56.7, W = 595.32 - L * 2, H = 841.92 - T * 2;
+      const L = 56.7, R = 538.6, W = R - L, CX = (L + R) / 2;
+      const center = (text, b, size, cls) => {
+        text = th(text);
+        while (size > MIN_SIZE && textWidth(text, size) > W) size -= 0.5;
+        return span(text, CX - textWidth(text, size) / 2, b, size, { cls });
+      };
+      // หัวกระดาษ: ชื่อเรื่อง + เลขที่ / ผู้แจ้ง / กลุ่มงาน + สถานที่ / วันที่แจ้ง
+      let html = '';
+      html += center('ภาพประกอบการแจ้งซ่อม', 82, 20, 'bold');
+      html += center(`เลขที่แจ้งซ่อม ${App.padNo(t.no)}  ${t.name || ''}  ${t.department || ''}`, 104, SIZE);
+      html += center(`สถานที่ ${t.location || '-'}  วันที่แจ้ง ${App.formatDate(t.createdAt)}`, 122.1, SIZE);
+      const top = 134, h = 841.92 - 56.7 - top;
+      html += `<div class="photo" style="left:${L}pt;top:${top}pt;width:${W}pt;height:${h.toFixed(2)}pt"><img id="photo" src="${App.driveThumb(t.imageId, 1600)}" alt="ภาพประกอบ" referrerpolicy="no-referrer"></div>`;
       return `
         <section class="page attach" id="attach-page">
-          <div class="photo" style="left:${L}pt;top:${T}pt;width:${W}pt;height:${H}pt;border:0"><img id="photo" src="${App.driveThumb(t.imageId, 1600)}" alt="ภาพประกอบ" referrerpolicy="no-referrer"></div>
+          ${html}
         </section>`;
     }
 
