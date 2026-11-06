@@ -190,6 +190,10 @@
   // พิมพ์ได้เมื่อเจ้าหน้าที่รับงานแล้ว (ดำเนินการ / เสร็จสิ้น)
   // งานไอทีต้องลงความเห็นก่อนด้วย เพราะแบบฟอร์มมีช่องความคิดเห็นของเจ้าหน้าที่ (งานทั่วไปไม่มี)
   const PRINTABLE = ['ดำเนินการ', 'เสร็จสิ้น'];
+  // รุ่นของแบบฟอร์มที่พิมพ์ — เปลี่ยนค่านี้เมื่อแก้หน้าตาใบแจ้งซ่อม ไฟล์ PDF ใน Drive ที่สร้างก่อนหน้าจะถูกนับว่าเป็นแบบเก่า
+  const FORM_VERSION = '2026-11-06';
+  function pdfOutdated(t) { return !!(t && t.pdfId) && t.pdfForm !== FORM_VERSION && !printBlock(t); }
+
   function needsComment(t) { return !!t && t.type === 'IT'; }
   function printBlock(t) {
     const st = statusOf(t);
@@ -204,6 +208,6 @@
     esc, statusOf, statusBadge, typeBadge, padNo, toDate, formatDate, thaiDateParts,
     driveThumb, driveView, compressImage, uploadImage, configReady, toast, firestoreErrorText,
     csvCell, storageGet, storageSet,
-    SIGNER_SLOTS, ymd, defaultSubNote, subActiveOn, resolveSigner, printBlock, needsComment
+    SIGNER_SLOTS, ymd, defaultSubNote, subActiveOn, resolveSigner, printBlock, needsComment, FORM_VERSION, pdfOutdated
   };
 })();

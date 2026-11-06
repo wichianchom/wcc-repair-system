@@ -79,6 +79,11 @@
 
       <div id="sub-banner" class="hidden mb-5 bg-violet-50 border border-violet-200 text-violet-900 rounded-xl px-4 py-3 text-sm"></div>
 
+      <div id="regen-banner" class="hidden mb-5 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span>📄 มีไฟล์ใบแจ้งซ่อมใน Drive <b id="regen-count">0</b> ไฟล์ ที่ยังเป็นแบบฟอร์มเก่า</span>
+        <button id="regen-btn" class="ml-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white rounded-lg px-3 py-1.5 font-medium">🔄 อัปเดตเป็นแบบฟอร์มปัจจุบันทั้งหมด</button>
+      </div>
+
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="p-4 border-b border-gray-200 bg-gray-50 grid grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
           <input id="search" type="search" class="field col-span-2 lg:col-span-1" placeholder="🔍 ค้นหาเลขที่ ชื่อ รายการ สถานที่" aria-label="ค้นหา">
@@ -355,6 +360,7 @@
         $('loaded-info').textContent = `แสดง ${tickets.length} รายการล่าสุด · อัปเดตอัตโนมัติ`;
         render();
         if (editingId && byId.has(editingId)) { refreshPdfRow(editingId); refreshPrintBtn(editingId); }
+        renderRegenBanner();
         clearTimeout(countTimer);
         countTimer = setTimeout(refreshCounts, 800);
       }, err => {
@@ -862,12 +868,13 @@
       });
     }
 
-    async function savePdf(id, manual) {
+    // คืนค่า true เมื่อบันทึกสำเร็จ  (quiet = ไม่แสดงข้อความสำเร็จทีละใบ ใช้ตอนอัปเดตทั้งหมด)
+    async function savePdf(id, manual, quiet) {
       if (!App.configReady().appsScript) {
         if (manual) App.toast('ยังไม่ได้ตั้งค่า appsScriptUrl ใน js/config.js จึงบันทึกลง Drive ไม่ได้', 'warn');
-        return;
+        return false;
       }
-      if (pdfBusy.has(id)) return;
+      if (pdfBusy.has(id)) return false;
       pdfBusy.add(id);
       refreshPdfRow(id);
       const label = 'ใบแจ้งซ่อม #' + App.padNo((byId.get(id) || {}).no);
@@ -881,17 +888,45 @@
         let out;
         try { out = JSON.parse(await res.text()); } catch (e) { throw new Error('Apps Script ตอบกลับผิดรูปแบบ'); }
         if (out.status !== 'success') throw new Error(out.message || 'บันทึกไม่สำเร็จ');
-        await updateDoc(doc(db, 'tickets', id), { pdfId: out.fileId });
-        App.toast(`📄 บันทึก${label} ลง Drive แล้ว`);
+        await updateDoc(doc(db, 'tickets', id), { pdfId: out.fileId, pdfForm: App.FORM_VERSION });
+        if (!quiet) App.toast(`📄 บันทึก${label} ลง Drive แล้ว`);
+        return true;
       } catch (err) {
         console.error(err);
         const msg = /ไม่รู้จักคำสั่ง/.test(err.message) ? 'ต้องอัปเดตโค้ด Apps Script และ Deploy เป็น New version ก่อน' : (err.message || String(err));
         App.toast(`บันทึก${label} ลง Drive ไม่สำเร็จ: ${msg}`, 'error');
+        return false;
       } finally {
         pdfBusy.delete(id);
         refreshPdfRow(id);
       }
     }
+
+    // ---------- อัปเดตไฟล์ PDF เก่าใน Drive ให้เป็นแบบฟอร์มปัจจุบัน ----------
+    let regenRunning = false;
+    function renderRegenBanner() {
+      if (regenRunning) return;
+      const n = tickets.filter(App.pdfOutdated).length;
+      $('regen-count').textContent = n;
+      $('regen-banner').classList.toggle('hidden', !n || !App.configReady().appsScript);
+    }
+    $('regen-btn').addEventListener('click', async () => {
+      const list = tickets.filter(App.pdfOutdated);
+      if (!list.length || regenRunning) return;
+      regenRunning = true;
+      const btn = $('regen-btn');
+      btn.disabled = true;
+      let ok = 0;
+      for (let i = 0; i < list.length; i++) {
+        btn.innerHTML = `<span class="spinner text-white" style="width:14px;height:14px;border-width:2px"></span> กำลังอัปเดต ${i + 1}/${list.length}`;
+        if (await savePdf(list[i].id, false, true)) ok++;
+      }
+      regenRunning = false;
+      btn.disabled = false;
+      btn.textContent = '🔄 อัปเดตเป็นแบบฟอร์มปัจจุบันทั้งหมด';
+      App.toast(ok === list.length ? `✅ อัปเดตไฟล์ใน Drive เป็นแบบฟอร์มปัจจุบันแล้ว ${ok} ไฟล์` : `อัปเดตสำเร็จ ${ok} จาก ${list.length} ไฟล์ (ดูข้อความผิดพลาดด้านบน)`, ok === list.length ? '' : 'warn');
+      renderRegenBanner();
+    });
 
     // ---------- ดาวน์โหลด CSV (เปิดใน Excel / Google Sheets ได้) ----------
     $('export-csv').addEventListener('click', async () => {
