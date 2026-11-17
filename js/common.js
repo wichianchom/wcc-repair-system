@@ -153,6 +153,12 @@
   // ---------- ผู้ลงนามในบันทึกข้อความ ----------
   // ลำดับช่องลงนาม (ตำแหน่งและหัวข้อมาจาก CFG.approvers / ชื่อแก้ได้ที่หน้าเจ้าหน้าที่ > ผู้ลงนาม)
   const SIGNER_SLOTS = ['generalHead', 'generalDeputy', 'supplyOfficer', 'supplyHead', 'budgetHead', 'budgetDeputy', 'director'];
+  // ช่องลงนามที่มีในแบบฟอร์มแต่ละประเภท (งานไอทีไม่มีช่องกลุ่มบริหารงบประมาณ)
+  const FORM_SLOTS = {
+    General: SIGNER_SLOTS,
+    IT: ['generalHead', 'generalDeputy', 'supplyOfficer', 'supplyHead', 'director']
+  };
+  function slotsFor(type) { return FORM_SLOTS[type] || FORM_SLOTS.General; }
 
   // วันที่แบบ YYYY-MM-DD ตามเวลาไทย
   function ymd(d) {
@@ -190,9 +196,11 @@
   // พิมพ์ได้เมื่อเจ้าหน้าที่รับงานแล้ว (ดำเนินการ / เสร็จสิ้น)
   // งานไอทีต้องลงความเห็นก่อนด้วย เพราะแบบฟอร์มมีช่องความคิดเห็นของเจ้าหน้าที่ (งานทั่วไปไม่มี)
   const PRINTABLE = ['ดำเนินการ', 'เสร็จสิ้น'];
-  // รุ่นของแบบฟอร์มที่พิมพ์ — เปลี่ยนค่านี้เมื่อแก้หน้าตาใบแจ้งซ่อม ไฟล์ PDF ใน Drive ที่สร้างก่อนหน้าจะถูกนับว่าเป็นแบบเก่า
-  const FORM_VERSION = '2026-11-06';
-  function pdfOutdated(t) { return !!(t && t.pdfId) && t.pdfForm !== FORM_VERSION && !printBlock(t); }
+  // รุ่นของแบบฟอร์มแต่ละประเภท — เปลี่ยนค่าเมื่อแก้หน้าตาใบแจ้งซ่อม ไฟล์ PDF ใน Drive ที่สร้างก่อนหน้าจะถูกนับว่าเป็นแบบเก่า
+  // (ค่าไม่ซ้ำกันระหว่างประเภท เพื่อให้ใบที่เปลี่ยนประเภทงานหลังบันทึก PDF ถูกนับว่าเป็นแบบเก่าด้วย)
+  const FORM_VERSIONS = { General: '2026-11-06', IT: 'IT-2026-11-17' };
+  function formVersion(t) { return FORM_VERSIONS[t && t.type] || FORM_VERSIONS.General; }
+  function pdfOutdated(t) { return !!(t && t.pdfId) && t.pdfForm !== formVersion(t) && !printBlock(t); }
 
   function needsComment(t) { return !!t && t.type === 'IT'; }
   function printBlock(t) {
@@ -208,6 +216,7 @@
     esc, statusOf, statusBadge, typeBadge, padNo, toDate, formatDate, thaiDateParts,
     driveThumb, driveView, compressImage, uploadImage, configReady, toast, firestoreErrorText,
     csvCell, storageGet, storageSet,
-    SIGNER_SLOTS, ymd, defaultSubNote, subActiveOn, resolveSigner, printBlock, needsComment, FORM_VERSION, pdfOutdated
+    SIGNER_SLOTS, FORM_SLOTS, slotsFor, ymd, defaultSubNote, subActiveOn, resolveSigner, printBlock, needsComment,
+    FORM_VERSIONS, formVersion, pdfOutdated
   };
 })();

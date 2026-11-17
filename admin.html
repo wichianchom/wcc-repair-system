@@ -511,7 +511,7 @@
         names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
       $('e-staff').value = current || '';
     }
-    $('e-type').addEventListener('change', () => { fillStaff($('e-type').value, $('e-staff').value); toggleGeneralRows(); reasonHint(); });
+    $('e-type').addEventListener('change', () => { fillStaff($('e-type').value, $('e-staff').value); toggleSignerRows(); reasonHint(); });
     // งานไอที: ความเห็นพิมพ์ลงในแบบฟอร์ม (บังคับกรอก) / งานทั่วไป: แบบฟอร์มไม่มีช่องนี้ (เก็บไว้ในระบบเท่านั้น)
     function reasonHint() {
       $('e-reason-hint').textContent = $('e-type').value === 'IT'
@@ -665,13 +665,20 @@
       el.classList.remove('hidden');
     }
 
+    // ช่องที่ไม่ได้อยู่ในแบบฟอร์มทุกประเภท บอกไว้ว่าใช้กับใบประเภทไหน
+    function slotForms(k) {
+      const types = Object.keys(App.TYPES).filter(ty => App.slotsFor(ty).indexOf(k) >= 0);
+      if (types.length === Object.keys(App.TYPES).length) return '';
+      return ` <span class="font-normal text-xs text-gray-400">(เฉพาะใบ${esc(types.map(ty => App.TYPES[ty].label).join(' / '))})</span>`;
+    }
+
     function signerCard(k, s) {
       const base = (CFG.approvers || {})[k] || {};
       const sub = s.sub || {};
       return `
         <div class="border border-gray-200 rounded-xl p-4" data-slot="${k}">
           <div class="flex items-center justify-between gap-2 mb-2">
-            <div class="font-semibold text-gray-900">${esc(slotLabel(k))}</div>
+            <div class="font-semibold text-gray-900">${esc(slotLabel(k))}${slotForms(k)}</div>
             <span class="s-chip text-xs"></span>
           </div>
           <label class="block text-xs text-gray-500 mb-1">ชื่อผู้ลงนามปกติ</label>
@@ -781,20 +788,21 @@
         const def = App.resolveSigner(k, signerSettings, { createdAt: t.createdAt });
         const o = own[k] || {};
         return `
-          <div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr_1fr] gap-2 sm:items-center" data-tslot="${k}" ${/^general/.test(k) ? 'data-general' : ''}>
+          <div class="grid grid-cols-1 sm:grid-cols-[11rem_1fr_1fr] gap-2 sm:items-center" data-tslot="${k}">
             <div class="text-sm text-gray-600">${esc(slotLabel(k))}</div>
             <input class="field t-name text-sm" maxlength="100" value="${esc(o.name || '')}" placeholder="${esc((def.name || 'ชื่อผู้ลงนาม') + (def.source === 'sub' ? ' (ผู้แทน)' : ''))}" aria-label="ชื่อผู้ลงนาม ${esc(slotLabel(k))}">
             <input class="field t-note text-sm" maxlength="150" value="${esc(o.note || '')}" placeholder="ข้อความใต้ชื่อ (ถ้ามี)" aria-label="ข้อความใต้ชื่อ ${esc(slotLabel(k))}">
           </div>`;
       }).join('');
-      toggleGeneralRows();
+      toggleSignerRows();
       const n = App.SIGNER_SLOTS.filter(k => own[k] && own[k].name).length;
       $('m-signers-hint').textContent = n ? `(เปลี่ยนไว้ ${n} ช่อง)` : '(ตามที่ตั้งไว้)';
       $('m-signers').open = n > 0;
     }
-    function toggleGeneralRows() {
-      const it = $('e-type').value === 'IT';
-      $('m-signer-rows').querySelectorAll('[data-general]').forEach(r => r.classList.toggle('hidden', it));
+    // แสดงเฉพาะช่องลงนามที่มีในแบบฟอร์มของประเภทงานที่เลือก
+    function toggleSignerRows() {
+      const slots = App.slotsFor($('e-type').value);
+      $('m-signer-rows').querySelectorAll('[data-tslot]').forEach(r => r.classList.toggle('hidden', slots.indexOf(r.dataset.tslot) < 0));
     }
     $('m-signer-rows').addEventListener('change', e => {
       if (!e.target.classList.contains('t-name')) return;
@@ -854,7 +862,7 @@
           if (e.origin !== location.origin || e.source !== f.contentWindow) return;
           const m = e.data || {};
           if (m.type !== 'repair-pdf') return;
-          finish(m.ok ? null : new Error(m.error || 'สร้าง PDF ไม่สำเร็จ'), m.data);
+          finish(m.ok ? null : new Error(m.error || 'สร้าง PDF ไม่สำเร็จ'), { data: m.data, form: m.form });
         }
         function finish(err, data) {
           clearTimeout(timer);
@@ -879,7 +887,7 @@
       refreshPdfRow(id);
       const label = 'ใบแจ้งซ่อม #' + App.padNo((byId.get(id) || {}).no);
       try {
-        const data = await renderPdf(id);
+        const { data, form } = await renderPdf(id);
         const idToken = await currentUser.getIdToken();
         const res = await fetch(CFG.appsScriptUrl, {
           method: 'POST',
@@ -888,7 +896,7 @@
         let out;
         try { out = JSON.parse(await res.text()); } catch (e) { throw new Error('Apps Script ตอบกลับผิดรูปแบบ'); }
         if (out.status !== 'success') throw new Error(out.message || 'บันทึกไม่สำเร็จ');
-        await updateDoc(doc(db, 'tickets', id), { pdfId: out.fileId, pdfForm: App.FORM_VERSION });
+        await updateDoc(doc(db, 'tickets', id), { pdfId: out.fileId, pdfForm: form || App.formVersion(byId.get(id)) });
         if (!quiet) App.toast(`📄 บันทึก${label} ลง Drive แล้ว`);
         return true;
       } catch (err) {

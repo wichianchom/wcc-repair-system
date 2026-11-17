@@ -126,11 +126,12 @@
         ],
         reporter: { pl: 260.6, pr: 388.4, b: 414.3 },
         tech: { lines: [{ x: 56.7, b: 468.6, w: 476.7 }, { x: 56.7, b: 486.7, w: 476.7 }], name: { pl: 236.4, pr: 364.2, b: 522.8 } },
+        // แบบฟอร์มงานไอที (ฉบับ 17 พ.ย. 2569): ช่างเทคโนโลยี → กลุ่มบริหารงานทั่วไป → เจ้าหน้าที่พัสดุ → ผู้อำนวยการ
         signers: {
-          supplyOfficer: { cx: 133.6,  b: 602.0, col: LEFT_COL },
-          supplyHead:    { cx: 387.3,  b: 602.0, col: RIGHT_COL },
-          budgetHead:    { cx: 132.3,  b: 681.0, col: LEFT_COL },
-          budgetDeputy:  { cx: 384.8,  b: 681.0, col: RIGHT_COL },
+          generalHead:   { cx: 126.3,  b: 595.1, col: LEFT_COL },
+          generalDeputy: { cx: 386.75, b: 595.1, col: RIGHT_COL },
+          supplyOfficer: { cx: 133.6,  b: 674.2, col: LEFT_COL },
+          supplyHead:    { cx: 387.3,  b: 674.2, col: RIGHT_COL },
           director:      { cx: 302.85, b: 760.1, col: FULL, titleB: 778.3 }
         }
       }
@@ -409,7 +410,7 @@
       $('info').textContent = `เลขที่ ${App.padNo(t.no)} · ${(App.TYPES[t.type] || App.TYPES.General).label} · ${App.statusOf(t)}`;
 
       if (EXPORT) {
-        exportPdf().then(data => report({ ok: true, data, no: t.no }))
+        exportPdf().then(data => report({ ok: true, data, no: t.no, form: App.formVersion(t) }))
           .catch(err => { console.error(err); report({ ok: false, error: 'สร้าง PDF ไม่สำเร็จ: ' + (err.message || err) }); });
         return;
       }
